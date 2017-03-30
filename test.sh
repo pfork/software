@@ -6,7 +6,7 @@ echo "put in Alice pitchfork, press enter"; read
 echo "put in Bob pitchfork, press enter"; read
 ./pitchfork respond Alice </tmp/kex >/tmp/response
 echo "testing xeddsa signing"
-echo "sign this" | ./pitchfork sign >/tmp/signature
+echo "sign me" | ./pitchfork sign >/tmp/signature
 echo "put in Alice pitchfork, press enter"; read
 ./pitchfork end Bob </tmp/response
 echo "testing xeddsa signature verification"
