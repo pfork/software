@@ -33,7 +33,6 @@ int main(int argc, char **argv) {
 
   libusb_context *ctx = NULL; //a libusb session
   libusb_device_handle *dev_handle;
-  int r; //for return values
   if(0!=open_pitchfork(&ctx, &dev_handle)) {
     return -1;
   }
@@ -60,7 +59,7 @@ int main(int argc, char **argv) {
       pf_close(ctx, dev_handle);
       return 1;
     }
-    pf_encrypt(dev_handle, argv[2]);
+    pf_encrypt(dev_handle, (uint8_t*)argv[2]);
   } else if(memcmp(argv[1],"decrypt",8)==0) {
     pf_decrypt(dev_handle);
   } else if(memcmp(argv[1],"ancrypt",8)==0) {
@@ -73,14 +72,14 @@ int main(int argc, char **argv) {
       pf_close(ctx, dev_handle);
       return 1;
     }
-    pf_ax_send(dev_handle, argv[2]);
+    pf_ax_send(dev_handle, (uint8_t*)argv[2]);
   } else if(memcmp(argv[1],"recv",5)==0) {
     if(argc<2) {
       fprintf(stderr,"recv needs a recipient name as param :/\nabort\n");
       pf_close(ctx, dev_handle);
       return 1;
     }
-    pf_ax_recv(dev_handle, argv[2]);
+    pf_ax_recv(dev_handle, (uint8_t*)argv[2]);
   } else if(memcmp(argv[1],"kex",4)==0) {
     pf_kex_start(dev_handle);
   } else if(memcmp(argv[1],"respond",8)==0) {
@@ -89,14 +88,14 @@ int main(int argc, char **argv) {
       pf_close(ctx, dev_handle);
       return 1;
     }
-    pf_kex_respond(dev_handle, argv[2]);
+    pf_kex_respond(dev_handle, (uint8_t*)argv[2]);
   } else if(memcmp(argv[1],"end",4)==0) {
     if(argc<2) {
       fprintf(stderr,"end needs a recipient name as param :/\nabort\n");
       pf_close(ctx, dev_handle);
       return 1;
     }
-    pf_kex_end(dev_handle, argv[2]);
+    pf_kex_end(dev_handle, (uint8_t*)argv[2]);
   } else if(memcmp(argv[1],"pqsign",7)==0) {
     pf_pqsign(dev_handle);
   } else if(memcmp(argv[1],"pqverify",9)==0) {
@@ -109,7 +108,7 @@ int main(int argc, char **argv) {
       pf_close(ctx, dev_handle);
       return 1;
     }
-    pf_verify(dev_handle, argv[2]);
+    pf_verify(dev_handle, (uint8_t*)argv[2]);
   } else if(memcmp(argv[1],"list",5)==0) {
     if(argc<3) {
       fprintf(stderr,"list needs a type as param :/\nabort\n");
@@ -118,7 +117,7 @@ int main(int argc, char **argv) {
     }
     uint8_t *peer=NULL;
     if(argc>3) {
-      peer=argv[3];
+      peer=(uint8_t*)argv[3];
     }
     if(memcmp(argv[2],"axolotl",8)==0) {
       pf_list(dev_handle, PF_KEY_AXOLOTL, peer);
