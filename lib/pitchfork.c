@@ -104,12 +104,17 @@ int pf_close(libusb_context *ctx, libusb_device_handle *dev_handle) {
   }
   libusb_close(dev_handle);
   libusb_exit(ctx);
+  return 0;
 }
 
-static int pf_perm(libusb_device_handle *dev_handle, uint8_t tok[2]) {
+static int pf_perm(libusb_device_handle *dev_handle, char tok[2]) {
   unsigned char pkt[64];
   int len;
-  fprintf(stderr, "wait for permission to show PITCHFORK\n");
+  if(memcmp(tok,"ok",2)==0) {
+    fprintf(stderr, "wait for permission to show PITCHFORK\n");
+  } else {
+    fprintf(stderr, "wait for %s\n", tok);
+  }
   if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 0)) {
     if(len!=2 || memcmp(pkt,tok, 2)!=0) {
       fprintf(stderr, "op rejected on PITCHFORK '%s'\n", pkt);
@@ -125,9 +130,9 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
   unsigned char pkt[64];
   pkt[0]=PITCHFORK_CMD_LIST_KEYS;
   pkt[1]=type;
-  int len=2, sent;
+  int len=2, sent, plen;
   if(peer!=NULL) {
-    int tmp=strnlen(peer,32);
+    int tmp=strnlen((const char*)peer,32);
     memcpy(pkt+2,peer,tmp);
     len+=tmp;
   }
@@ -150,38 +155,34 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
       }
     }
   }
-  do {
-    fwrite(buf, 1, len, stdout);
-    fflush(stdout);
-  } while(len==64 && libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)==0);
 
   uint8_t *ptr = buf;
-  while(ptr-buf<len) {
+  while(ptr<buf+len) {
     switch(ptr[0]) {
     case 0: { // known user
-      int len=ptr[1];
-      if(len>32) {
+      plen=ptr[1];
+      if(plen>32) {
         fprintf(stderr, "wrong len\n");
         return -1;
       }
-      uint8_t name[len+1];
-      memcpy(name, ptr+2, len);
-      name[len]=0;
+      uint8_t name[plen+1];
+      memcpy(name, ptr+2, plen);
+      name[plen]=0;
       fprintf(stderr, "[u] %s\n", name);
-      ptr+=2+len;
+      ptr+=2+plen;
       break;
     }
     case 1: { // unknown user
-      int len=ptr[1];
-      if(len>32) {
+      plen=ptr[1];
+      if(plen>32) {
         fprintf(stderr, "wrong len\n");
         return -1;
       }
-      uint8_t name[len+1];
-      memcpy(name, ptr+2, len);
-      name[len]=0;
+      uint8_t name[plen+1];
+      memcpy(name, ptr+2, plen);
+      name[plen]=0;
       fprintf(stderr, "[?] %s\n", name);
-      ptr+=2+len;
+      ptr+=2+plen;
       break;
     }
     case 2: { // correct keyid
@@ -214,7 +215,7 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
 int pf_encrypt(libusb_device_handle *dev_handle, uint8_t *peer) {
   unsigned char pkt[64];
   pkt[0]=PITCHFORK_CMD_ENCRYPT;
-  int peerlen=strlen(peer);
+  int peerlen=strlen((const char*)peer);
   if(peerlen>32 || peerlen<1) return -1;
   memcpy(pkt+1,peer,peerlen);
 
@@ -262,9 +263,8 @@ int pf_encrypt(libusb_device_handle *dev_handle, uint8_t *peer) {
     }
 
     // read response
-    int ret;
     if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, size+16, &len, 0))!=0 || len!=size+16) {
-      fprintf(stderr,"[!] bad read %d %d\n", len, size+16, ret);
+      fprintf(stderr,"[!] bad read %d %d %d\n", len, size+16, ret);
       return -1;
     }
     fwrite(buf, 1, len, stdout);
@@ -321,7 +321,6 @@ int pf_decrypt(libusb_device_handle *dev_handle) {
     }
 
     // read response
-    int ret;
     if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, size-16, &len, 0))!=0 || len!=size-16) {
       fprintf(stderr,"[!] bad read %d %d %d\n", len, size-16, ret);
       return -1;
@@ -340,7 +339,7 @@ int pf_decrypt(libusb_device_handle *dev_handle) {
 int pf_ax_send(libusb_device_handle *dev_handle, uint8_t *peer) {
   unsigned char pkt[64];
   pkt[0]=PITCHFORK_CMD_AX_SEND;
-  int peerlen=strlen(peer);
+  int peerlen=strlen((const char*)peer);
   if(peerlen>32 || peerlen<1) return -1;
   memcpy(pkt+1,peer,peerlen);
 
@@ -401,7 +400,6 @@ int pf_ax_send(libusb_device_handle *dev_handle, uint8_t *peer) {
     }
 
     // read response
-    int ret;
     if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, size+16, &len, 0))!=0 || len!=size+16) {
       fprintf(stderr,"[!] bad read %d %d %d\n", len, size+16, ret);
       return -1;
@@ -424,7 +422,7 @@ int pf_ax_recv(libusb_device_handle *dev_handle, uint8_t *peer) {
     fprintf(stderr,"read hnonce,headers,mnonce meh\n");
     return -1;
   }
-  int peerlen=strlen(peer);
+  int peerlen=strlen((const char*)peer);
   if(peerlen>32 || peerlen<1) return -1;
   memcpy(buf+1+24+64+24,peer,peerlen);
 
@@ -469,7 +467,6 @@ int pf_ax_recv(libusb_device_handle *dev_handle, uint8_t *peer) {
       }
     }
     // read response
-    int ret;
     if(0!=(ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, 64*(((size-16)/64)+1), &len, 0)) || len!=size-16) {
       buf[len]=0;
       fprintf(stderr, "[#] len: %d, size: %d - %s\n%s\n", (int) len, size-16, libusb_strerror(ret), buf);
@@ -494,16 +491,12 @@ int pf_kex_start(libusb_device_handle *dev_handle) {
     fprintf(stderr,"meh\n");
     return -1;
   }
-  if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 0)) {
-    if(len!=2 || memcmp(pkt,"tx", 2)!=0) {
-      fprintf(stderr, "%s\n", pkt);
-      return -1;
-    }
-  }
+  if(0!=pf_perm(dev_handle, "ok")) return -1;
+  if(0!=pf_perm(dev_handle, "tx")) return -1;
   fprintf(stderr, "processing kex start\n");
-  uint8_t buf[((2208/64)+1)*64];
-  if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0 || len!=2208) {
-    fprintf(stderr, "[x] failed to receive prekey\n");
+  uint8_t buf[((sizeof(Axolotl_PreKey)/64)+1)*64];
+  if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0 || len!=sizeof(Axolotl_PreKey)) {
+    fprintf(stderr, "[x] failed to receive prekey (len: %d, %s)\n",len, buf);
   }
   fwrite(buf, 1, len, stdout);
   fflush(stdout);
@@ -515,57 +508,62 @@ int pf_kex_start(libusb_device_handle *dev_handle) {
 int pf_kex_respond(libusb_device_handle *dev_handle, uint8_t *peer) {
   unsigned char pkt[64];
   pkt[0]=PITCHFORK_CMD_KEX_RESPOND;
-  int plen=strnlen(peer,32);
+  int plen=strnlen((const char*)peer,32);
   memcpy(pkt+1,peer,plen);
 
+  // load prekey from stdin
+  uint8_t buf[sizeof(Axolotl_PreKey)];
+  if(1!=fread(buf, sizeof(Axolotl_PreKey), 1, stdin)) {
+    fprintf(stderr, "[x] bad prekey\n");
+    return -1;
+  }
+
+  // send command + peername to pitchfork
   int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, pkt, 1+plen, &len, 0);
   if(ret != 0 || len != 1+plen) {
     fprintf(stderr,"meh\n");
     return -1;
   }
 
+  // wait until permission granted to operate the pitchfork
   if(0!=pf_perm(dev_handle, "ok")) return -1;
   fprintf(stderr, "processing kex response\n");
 
-  uint8_t buf[2208];
-  if(1!=fread(buf, 2208, 1, stdin)) {
-    fprintf(stderr, "[x] bad prekey\n");
-    return -1;
-  }
-
   // wait for go
   pf_perm(dev_handle, "go");
-  //if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 0)) {
-  //  if(len!=2 || memcmp(pkt,"go", 2)!=0) {
-  //    fprintf(stderr, "%s\n", pkt);
-  //    return -1;
-  //  }
-  //}
 
-  if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, 2208, &len, 0)!=0 || len!=2208) {
-    fprintf(stderr,"[!] bad write\n");
+  if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, sizeof(Axolotl_PreKey), &len, 0)!=0 || len!=sizeof(Axolotl_PreKey)) {
+    fprintf(stderr,"[!] bad write %d\n", len);
     return -1;
   }
   fprintf(stderr,"wrote %d bytes\n", len);
+  if(sizeof(Axolotl_PreKey)%64==0) {
+    libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, NULL, 0, &len, 0); // zlp for payload%64==0
+  }
 
-  //uint8_t resp[(((2208+16)/64)+1)*64];
-  uint8_t resp[65336];
-  if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, resp, 65536, &len, 0)!=0 || len!=2208+16) {
-    fprintf(stderr, "[x] wrong response: %d %d\n", len, 2208+16);
+  uint8_t resp[((sizeof(Axolotl_Resp)/64)+1)*64];
+  if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, resp, sizeof(resp), &len, 0)!=0 || len!=sizeof(Axolotl_Resp)) {
+    fprintf(stderr, "[x] wrong response: %d != %ld\n", len, sizeof(Axolotl_Resp));
     return -1;
   }
   fwrite(resp, 1, len, stdout);
   fflush(stdout);
   pf_reset(dev_handle);
-  fprintf(stderr, "kex start done\n");
+  fprintf(stderr, "kex resp done\n");
   return 0;
 }
 
 int pf_kex_end(libusb_device_handle *dev_handle, uint8_t *peer) {
   unsigned char pkt[64];
   pkt[0]=PITCHFORK_CMD_KEX_END;
-  int plen=strnlen(peer,32);
+  int plen=strnlen((const char*)peer,32);
   memcpy(pkt+1,peer,plen);
+
+  uint8_t buf[sizeof(Axolotl_Resp)];
+  if(1!=fread(buf, sizeof(buf), 1, stdin)) {
+    fprintf(stderr, "[x] bad prekey\n");
+    return -1;
+  }
 
   int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, pkt, 1+plen, &len, 0);
   if(ret != 0 || len != 1+plen) {
@@ -576,34 +574,20 @@ int pf_kex_end(libusb_device_handle *dev_handle, uint8_t *peer) {
   if(0!=pf_perm(dev_handle, "ok")) return -1;
   fprintf(stderr, "processing kex end\n");
 
-  uint8_t buf[2208+16];
-  if(1!=fread(buf, 2208+16, 1, stdin)) {
-    fprintf(stderr, "[x] bad prekey\n");
-    return -1;
-  }
-
   // wait for go
-  pf_perm(dev_handle, "go");
-  //if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 0)) {
-  //  if(len!=2 || memcmp(pkt,"go", 2)!=0) {
-  //    fprintf(stderr, "%s\n", pkt);
-  //    return -1;
-  //  }
-  //}
+  if(0!=pf_perm(dev_handle, "go")) return -1;
 
   if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, sizeof(buf), &len, 0)!=0 || len!=sizeof(buf)) {
     fprintf(stderr,"[!] bad write\n");
     return -1;
   }
   fprintf(stderr,"wrote %d bytes\n", len);
+  if(sizeof(buf)%64==0) {
+    libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, NULL, 0, &len, 0); // zlp for payload%64==0
+  }
 
   // wait for ok
-  if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 0)) {
-    if(len!=2 || memcmp(pkt,"OK", 2)!=0) {
-      fprintf(stderr, "%s\n", pkt);
-      return -1;
-    }
-  }
+  if(0!=pf_perm(dev_handle, "OK")) return -1;
 
   pf_reset(dev_handle);
   fprintf(stderr, "kex end done\n");
@@ -639,8 +623,8 @@ int pf_pqsign(libusb_device_handle *dev_handle) {
 
   }
   // read response
-  if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0))!=0 || len!=41000) {
-    fprintf(stderr,"[!] bad read %d %d\n", len, size+16, ret);
+  if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0))!=0 || len!=CRYPTO_BYTES) {
+    fprintf(stderr,"[!] bad read %d %d %d\n", len, size+16, ret);
     return -1;
   }
   fwrite(buf, 1, len, stdout);
@@ -674,7 +658,7 @@ int pf_sign(libusb_device_handle *dev_handle) {
       fprintf(stderr,"[!] bad write\n");
       return -1;
     }
-    if(size<32768 && !(size&0x3f)) { // todo test without this, is this needed?
+    if(size<32768 && !(size&0x3f)) {
       libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, 0, &len, 0); // zlp for payload%64==0
     }
 
@@ -701,7 +685,7 @@ int pf_verify(libusb_device_handle *dev_handle, uint8_t *peer) {
     fprintf(stderr,"read sig meh\n");
     return -1;
   }
-  int plen=strnlen(peer,32);
+  int plen=strnlen((const char*)peer,32);
   memcpy(pkt+64+1,peer,plen);
 
   int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, pkt, 1+64+plen, &len, 0);
@@ -728,7 +712,7 @@ int pf_verify(libusb_device_handle *dev_handle, uint8_t *peer) {
   }
   // read response
   if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, pkt, sizeof(pkt), &len, 0))!=0 || len!=1) {
-    fprintf(stderr,"[!] bad read %d %d\n", len, size+16, ret);
+    fprintf(stderr,"[!] bad read %d %d %d\n", len, size+16, ret);
     return -1;
   }
   switch(pkt[0]) {
@@ -789,7 +773,6 @@ int pf_decrypt_anon(libusb_device_handle *dev_handle) {
     }
 
     // read response
-    int ret;
     if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, size-16, &len, 0))!=0 || len!=size-16) {
       fprintf(stderr,"[!] bad read %d %d %d\n", len, size-16, ret);
       return -1;
@@ -876,8 +859,8 @@ int pf_get_pub(libusb_device_handle *dev_handle, int type) {
   if(0!=pf_perm(dev_handle, "ok")) return -1;
   fprintf(stderr,"type: %d\n",type);
   if(type==1) {
-    uint8_t buf[((PQCRYPTO_PUBLICKEYBYTES/64)+1)*64];
-    if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0 || len!=PQCRYPTO_PUBLICKEYBYTES) {
+    uint8_t buf[((CRYPTO_PUBLICKEYBYTES/64)+1)*64];
+    if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0 || len!=CRYPTO_PUBLICKEYBYTES) {
       fprintf(stderr, "[x] failed to receive sphincs pubkey\n");
       return -1;
     }
@@ -892,7 +875,7 @@ int pf_get_pub(libusb_device_handle *dev_handle, int type) {
   }
   fflush(stdout);
   pf_reset(dev_handle);
-  fprintf(stderr, "kex start done\n");
+  fprintf(stderr, "dump pub done\n");
   return 0;
 }
 
