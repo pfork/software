@@ -4,7 +4,11 @@
 #include <string.h>
 #include "pitchfork.h"
 
-#define PQCRYPTO_PUBLICKEYBYTES 1056
+//#include "crypto_sign.h"
+//#include "api.h"
+#include "sphincs256.h"
+#include "axolotl.h"
+#include "sodium/crypto_generichash.h"
 
 int open_pitchfork(libusb_context **ctx, libusb_device_handle **dev_handle) {
 	int r; //for return values
@@ -624,7 +628,7 @@ int pf_pqsign(libusb_device_handle *dev_handle) {
   }
   // read response
   if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0))!=0 || len!=CRYPTO_BYTES) {
-    fprintf(stderr,"[!] bad read %d %d %d\n", len, size+16, ret);
+    fprintf(stderr,"[!] bad read %d %d %d\n", len, CRYPTO_BYTES, ret);
     return -1;
   }
   fwrite(buf, 1, len, stdout);
@@ -879,13 +883,14 @@ int pf_get_pub(libusb_device_handle *dev_handle, int type) {
   return 0;
 }
 
-#include "sphincs/sphincs256.h"
-#include "sodium/crypto_generichash.h"
-
-// todo change chacha12 into chacha20
 int pf_pqverify(void) {
-  uint8_t sig[41000];
-  if(1!=fread(sig, 41000, 1, stdin)) {
+  uint8_t pk[CRYPTO_PUBLICKEYBYTES];
+  if(1!=fread(pk, CRYPTO_PUBLICKEYBYTES, 1, stdin)) {
+    fprintf(stderr,"[x] fail pubkey read\nabort\n");
+    return -1;
+  }
+  uint8_t sig[CRYPTO_BYTES+32];
+  if(1!=fread(sig, CRYPTO_BYTES, 1, stdin)) {
     fprintf(stderr,"[x] fail sig read\nabort\n");
     return -1;
   }
@@ -897,11 +902,18 @@ int pf_pqverify(void) {
     size=fread(buf,1,sizeof(buf), stdin);
     crypto_generichash_update(&hash_state, buf, size);
   }
-  uint8_t hash[32];
-  crypto_generichash_final(&hash_state, hash, 32);
-  if(crypto_sign_open(hash,32,sig)==0) {
+  crypto_generichash_final(&hash_state, sig+CRYPTO_BYTES, 32);
+  int i;
+  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[CRYPTO_BYTES+i], (i%2)?" ":"");
+  fprintf(stderr,"\n");
+  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[i], (i%4==3)?" ":"");
+  fprintf(stderr,"...");
+  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[CRYPTO_BYTES-32+i], (i%4==3)?" ":"");
+  fprintf(stderr,"\n");
+  if(crypto_sign_open(sig,CRYPTO_BYTES+32,pk)==0) {
     fprintf(stderr,"ok\n");
   } else {
     fprintf(stderr,"invalid\n");
   }
+  return 0;
 }

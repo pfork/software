@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-#define CHACHA_ROUNDS 12
+#define CHACHA_ROUNDS 20
 
 #define U32V(x) \
   ((x) & 0xffffffff)
