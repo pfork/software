@@ -38,3 +38,11 @@ echo "testing axolotl protocol"
 echo '1<3u' | ./pitchfork send Bob >/tmp/ciphertext
 echo "put in Bob pitchfork, press enter"; read
 ./pitchfork recv Alice </tmp/ciphertext
+
+echo "testing sphincs pq sigs"
+echo "testing sphincs signing"
+echo "sign me" | ./pitchfork pqsign >/tmp/pqsign
+echo "testing getting sphincs pubkey"
+./pitchfork getpub sphincs >/tmp/pqpub
+echo "testing verifying sphincs signature"
+{ cat /tmp/pqpub; cat /tmp/pqsign; echo "sign me"} | ./pitchfork pqverify 
