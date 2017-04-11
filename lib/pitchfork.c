@@ -899,13 +899,6 @@ int pf_pqverify(void) {
   }
   uint8_t msg[32];
   crypto_generichash_final(&hash_state, msg, 32);
-  int i;
-  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", msg[i], (i%2)?" ":"");
-  fprintf(stderr,"\n");
-  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[i], (i%4==3)?" ":"");
-  fprintf(stderr,"...");
-  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[PQCRYPTO_BYTES-32+i], (i%4==3)?" ":"");
-  fprintf(stderr,"\n");
   if(pqcrypto_sign_open(msg, sig, pk)==0) {
     fprintf(stderr,"ok\n");
   } else {
