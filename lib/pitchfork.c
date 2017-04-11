@@ -4,9 +4,7 @@
 #include <string.h>
 #include "pitchfork.h"
 
-//#include "crypto_sign.h"
-//#include "api.h"
-#include "sphincs256.h"
+#include "pqcrypto_sign.h"
 #include "axolotl.h"
 #include "sodium/crypto_generichash.h"
 
@@ -621,20 +619,17 @@ int pf_pqsign(libusb_device_handle *dev_handle) {
       fprintf(stderr,"[!] bad write\n");
       return -1;
     }
-    if(size<32768 && !(size&0x3f)) { // todo test without this, is this needed?
+    if(size<32768 && !(size&0x3f)) {
       libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, 0, &len, 0); // zlp for payload%64==0
     }
-
   }
   // read response
-  if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0))!=0 || len!=CRYPTO_BYTES) {
-    fprintf(stderr,"[!] bad read %d %d %d\n", len, CRYPTO_BYTES, ret);
+  if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0))!=0 || len!=PQCRYPTO_BYTES) {
+    fprintf(stderr,"[!] bad read %d %d %d\n", len, PQCRYPTO_BYTES, ret);
     return -1;
   }
   fwrite(buf, 1, len, stdout);
   fflush(stdout);
-  if(size==32768)
-      libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, 0, &len, 0); // zlp for payload%64==0
 
   pf_reset(dev_handle);
   fprintf(stderr, "pitchfork off\n");
@@ -863,8 +858,8 @@ int pf_get_pub(libusb_device_handle *dev_handle, int type) {
   if(0!=pf_perm(dev_handle, "ok")) return -1;
   fprintf(stderr,"type: %d\n",type);
   if(type==1) {
-    uint8_t buf[((CRYPTO_PUBLICKEYBYTES/64)+1)*64];
-    if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0 || len!=CRYPTO_PUBLICKEYBYTES) {
+    uint8_t buf[((PQCRYPTO_PUBLICKEYBYTES/64)+1)*64];
+    if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0 || len!=PQCRYPTO_PUBLICKEYBYTES) {
       fprintf(stderr, "[x] failed to receive sphincs pubkey\n");
       return -1;
     }
@@ -884,13 +879,13 @@ int pf_get_pub(libusb_device_handle *dev_handle, int type) {
 }
 
 int pf_pqverify(void) {
-  uint8_t pk[CRYPTO_PUBLICKEYBYTES];
-  if(1!=fread(pk, CRYPTO_PUBLICKEYBYTES, 1, stdin)) {
+  uint8_t pk[PQCRYPTO_PUBLICKEYBYTES];
+  if(1!=fread(pk, PQCRYPTO_PUBLICKEYBYTES, 1, stdin)) {
     fprintf(stderr,"[x] fail pubkey read\nabort\n");
     return -1;
   }
-  uint8_t sig[CRYPTO_BYTES+32];
-  if(1!=fread(sig, CRYPTO_BYTES, 1, stdin)) {
+  uint8_t sig[PQCRYPTO_BYTES];
+  if(1!=fread(sig, PQCRYPTO_BYTES, 1, stdin)) {
     fprintf(stderr,"[x] fail sig read\nabort\n");
     return -1;
   }
@@ -902,15 +897,16 @@ int pf_pqverify(void) {
     size=fread(buf,1,sizeof(buf), stdin);
     crypto_generichash_update(&hash_state, buf, size);
   }
-  crypto_generichash_final(&hash_state, sig+CRYPTO_BYTES, 32);
+  uint8_t msg[32];
+  crypto_generichash_final(&hash_state, msg, 32);
   int i;
-  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[CRYPTO_BYTES+i], (i%2)?" ":"");
+  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", msg[i], (i%2)?" ":"");
   fprintf(stderr,"\n");
   for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[i], (i%4==3)?" ":"");
   fprintf(stderr,"...");
-  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[CRYPTO_BYTES-32+i], (i%4==3)?" ":"");
+  for(i=0;i<32;i++) fprintf(stderr,"%02x%s", sig[PQCRYPTO_BYTES-32+i], (i%4==3)?" ":"");
   fprintf(stderr,"\n");
-  if(crypto_sign_open(sig,CRYPTO_BYTES+32,pk)==0) {
+  if(pqcrypto_sign_open(msg, sig, pk)==0) {
     fprintf(stderr,"ok\n");
   } else {
     fprintf(stderr,"invalid\n");
