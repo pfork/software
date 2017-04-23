@@ -147,7 +147,5 @@ int main(int argc, char **argv) {
     usage(argv,1);
   }
 
-  // todo enable, only for debugging
-  //return pf_close(ctx, dev_handle);
-  return 0;
+  return pf_close(ctx, dev_handle);
 }
