@@ -10,17 +10,17 @@
 
 int open_pitchfork(libusb_context **ctx, libusb_device_handle **dev_handle) {
 	int r; //for return values
-	r = libusb_init(ctx); //initialize the library for the session we just declared
+	r = libusb_init(ctx); //initialize the library
 	if(r < 0) {
-     fprintf(stderr,"Init Error %d\n",r); //there was an error
-     return 1;
+     fprintf(stderr,"Init Error %d\n",r);
+     return -1;
 	}
 	libusb_set_debug(*ctx, 3); //set verbosity level to 3, as suggested in the documentation
 
 	*dev_handle = libusb_open_device_with_vid_pid(*ctx, 0x0483, 0x5740);
 	if(*dev_handle == NULL) {
      fprintf(stderr,"Cannot open device\n");
-      return -1;
+     return -1;
    }
 
    if(libusb_kernel_driver_active(*dev_handle, 0) == 1) { //find out if kernel driver is attached
