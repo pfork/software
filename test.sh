@@ -46,3 +46,6 @@ echo "testing getting sphincs pubkey"
 ./pitchfork getpub sphincs >/tmp/pqpub
 echo "testing verifying sphincs signature"
 { cat /tmp/pqpub; cat /tmp/pqsign; echo "sign me"} | ./pitchfork pqverify 
+
+echo "testing (de)armoring"
+./armor msg /bin/dd if=/dev/zero count=1 2>/dev/null | ./dearmor msg hexdump
