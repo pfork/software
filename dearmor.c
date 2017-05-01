@@ -32,6 +32,8 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
+  close(pfd[0]);
+
   pipe(bfd);
   // pipe input into base64
   if((bpid = fork()) == -1) {
@@ -42,7 +44,6 @@ int main(int argc, char *argv[]) {
     // set pfd[0]
     dup2(pfd[1], STDOUT_FILENO);
     dup2(bfd[0], STDIN_FILENO);
-    close(pfd[0]);
     close(pfd[1]);
     close(bfd[0]);
     close(bfd[1]);
@@ -51,7 +52,6 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
-  close(pfd[0]);
   close(pfd[1]);
   close(bfd[0]);
 
