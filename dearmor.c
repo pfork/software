@@ -17,8 +17,22 @@ int main(int argc, char *argv[]) {
   }
 
   pipe(pfd);
-  pipe(bfd);
 
+  if((ppid = fork()) == -1) {
+    perror("fork");
+    exit(1);
+  }
+  if(ppid == 0) {
+    // set pfd[1]
+    dup2(pfd[0], STDIN_FILENO);
+    close(pfd[0]);
+    close(pfd[1]);
+    // exec cmd with argv
+    execvp(argv[2], &argv[2]);
+    exit(0);
+  }
+
+  pipe(bfd);
   // pipe input into base64
   if((bpid = fork()) == -1) {
     perror("fork");
@@ -34,22 +48,6 @@ int main(int argc, char *argv[]) {
     close(bfd[1]);
     // exec base64
     execlp("base64","base64", "-d", (char*) NULL);
-    exit(0);
-  }
-
-  if((ppid = fork()) == -1) {
-    perror("fork");
-    exit(1);
-  }
-  if(ppid == 0) {
-    // set pfd[1]
-    dup2(pfd[0], STDIN_FILENO);
-    close(pfd[0]);
-    close(pfd[1]);
-    close(bfd[0]);
-    close(bfd[1]);
-    // exec cmd with argv
-    execvp(argv[2], &argv[2]);
     exit(0);
   }
 
@@ -79,7 +77,6 @@ int main(int argc, char *argv[]) {
   while(1) {
     line=NULL;
     if((len=getline(&line, &a, stdin)) == (size_t)-1) {
-      fprintf(stderr, "err: %ld\n", len);
       perror("unwrap");
       exit(1);
     }
