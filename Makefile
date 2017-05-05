@@ -10,11 +10,11 @@ all: pitchfork armor dearmor
 pitchfork: $(sphincsobjs) lib/pitchfork.o main.c
 	$(CC) $(INCS) $(CFLAGS) main.c -o $@ $(sphincsobjs) lib/pitchfork.o $(LDFLAGS)
 
-armor: armor.c
-	gcc $(CFLAGS) -o armor armor.c
+armor: armor.c forkutils.o
+	gcc $(CFLAGS) -o armor armor.c forkutils.o
 
-dearmor: dearmor.c
-	gcc $(CFLAGS) -o dearmor dearmor.c
+dearmor: dearmor.c forkutils.o
+	gcc $(CFLAGS) -o dearmor dearmor.c forkutils.o
 
 crypto_stream_chacha20.o: $(BP)/lib/sphincs/crypto_stream_chacha20.c
 	gcc $(INCS) $(CFLAGS) -o $@ -c $<
@@ -35,6 +35,9 @@ sign.o: $(BP)/lib/sphincs/sign.c
 	gcc $(INCS) $(CFLAGS) -o $@ -c $<
 
 permute.o: $(BP)/lib/sphincs/permute.c
+	gcc $(INCS) $(CFLAGS) -o $@ -c $<
+
+forkutils.o: forkutils.c
 	gcc $(INCS) $(CFLAGS) -o $@ -c $<
 
 lib/pitchfork.o: lib/pitchfork.c
