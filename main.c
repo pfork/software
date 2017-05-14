@@ -99,7 +99,9 @@ int main(int argc, char **argv) {
   } else if(memcmp(argv[1],"pqsign",7)==0) {
     pf_pqsign(dev_handle);
   } else if(memcmp(argv[1],"pqverify",9)==0) {
-    pf_pqverify();
+     int ret=pf_pqverify();
+     pf_close(ctx, dev_handle);
+     return ret;
   } else if(memcmp(argv[1],"sign",5)==0) {
     pf_sign(dev_handle);
   } else if(memcmp(argv[1],"verify",7)==0) {
@@ -108,7 +110,9 @@ int main(int argc, char **argv) {
       pf_close(ctx, dev_handle);
       return 1;
     }
-    pf_verify(dev_handle, (uint8_t*)argv[2]);
+    int ret=pf_verify(dev_handle, (uint8_t*)argv[2]);
+    pf_close(ctx, dev_handle);
+    return ret;
   } else if(memcmp(argv[1],"list",5)==0) {
     if(argc<3) {
       fprintf(stderr,"list needs a type as param :/\nabort\n");
