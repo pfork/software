@@ -233,9 +233,6 @@ int pf_encrypt(libusb_device_handle *dev_handle, uint8_t *peer) {
     fprintf(stderr,"[?] ekid oops?\n");
     return -1;
   }
-  //fprintf(stderr,"got ekid\n");
-  // dump it
-  //fprintf(stderr, "wrote %d bytes\n", (int) fwrite(pkt, 1, EKID_SIZE, stdout));
   fwrite(pkt, 1, EKID_SIZE, stdout);
   fflush(stdout);
 
@@ -244,9 +241,6 @@ int pf_encrypt(libusb_device_handle *dev_handle, uint8_t *peer) {
     fprintf(stderr,"[?] nonce oops?\n");
     return -1;
   }
-  //fprintf(stderr,"got nonce\n");
-  // dump it
-  //fprintf(stderr, "wrote %d bytes\n", (int) fwrite(pkt, 1, 24, stdout));
   fwrite(pkt, 1, 24, stdout);
   fflush(stdout);
 
@@ -272,8 +266,6 @@ int pf_encrypt(libusb_device_handle *dev_handle, uint8_t *peer) {
     fwrite(buf, 1, len, stdout);
     fflush(stdout);
   }
-  if(size==32768)
-      libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, 0, &len, 0); // zlp for payload%64==0
 
   pf_reset(dev_handle);
   fprintf(stderr, "pitchfork off\n");
@@ -409,8 +401,6 @@ int pf_ax_send(libusb_device_handle *dev_handle, uint8_t *peer) {
     fwrite(buf, 1, len, stdout);
     fflush(stdout);
   }
-  if(size==32768)
-      libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_IN, buf, 0, &len, 0); // zlp for payload%64==0
 
   pf_reset(dev_handle);
   fprintf(stderr, "pitchfork off\n");
