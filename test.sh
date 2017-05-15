@@ -30,7 +30,7 @@ echo -e "\ntesting xeddsa signature verification failing"
 echo -e "\ntesting shared key encryption"
 echo 'PITCHFORK!!5!' | ./pitchfork encrypt Bob >/tmp/cipher
 echo -e "\ntesting shared key decryption"
-./pitchfork decrypt Bob </tmp/cipher
+./pitchfork decrypt </tmp/cipher
 
 echo -e "\ntesting anonymous encryption"
 { cat /tmp/pubkey ; echo "hello stranger" ; } | ./pitchfork ancrypt >/tmp/ancrypted
