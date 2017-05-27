@@ -61,43 +61,43 @@ static int read_msg(const string &p, string &msg) {
 
   ssize_t r = pread(fd, buf, sizeof(buf), 0);
   int saved_errno = errno;
-	if (was_opened)
-		close(fd);
-	if (r > 0) {
-		msg = string(buf, r);
-		return 0;
-	}
+  if (was_opened)
+    close(fd);
+  if (r > 0) {
+    msg = string(buf, r);
+    return 0;
+  }
 
-	// cant peek on tty or pipe
-	if (r < 0 && saved_errno == ESPIPE) {
-		char tmpl[] = "/tmp/keymeleon.XXXXXX";
-		int fd2 = mkstemp(tmpl);
-		if (fd2 < 0)
-			return -1;
-      unlink(tmpl);
-		struct pollfd pfd{fd, POLLIN, 0};
-		for (;;) {
-			pfd.events = POLLIN;
-			pfd.revents = 0;
-			poll(&pfd, 1, 2000);
-			if ((pfd.revents & POLLIN) != POLLIN)
-				break;
-			r = read(fd, buf, sizeof(buf));
-			if (r <= 0)
-				break;
-			if (write(fd2, buf, r) != r) {
-				close(fd2);
-				return -1;
-			}
-			msg += string(buf, r);
-		}
-		lseek(fd2, SEEK_SET, 0);
-		dup2(fd2, 0);
-		close(fd2);
-      return 0;
-	}
+  // cant peek on tty or pipe
+  if (r < 0 && saved_errno == ESPIPE) {
+    char tmpl[] = "/tmp/keymeleon.XXXXXX";
+    int fd2 = mkstemp(tmpl);
+    if (fd2 < 0)
+      return -1;
+    unlink(tmpl);
+    struct pollfd pfd{fd, POLLIN, 0};
+    for (;;) {
+      pfd.events = POLLIN;
+      pfd.revents = 0;
+      poll(&pfd, 1, 2000);
+      if ((pfd.revents & POLLIN) != POLLIN)
+        break;
+      r = read(fd, buf, sizeof(buf));
+      if (r <= 0)
+        break;
+      if (write(fd2, buf, r) != r) {
+        close(fd2);
+        return -1;
+      }
+      msg += string(buf, r);
+    }
+    lseek(fd2, SEEK_SET, 0);
+    dup2(fd2, 0);
+    close(fd2);
+    return 0;
+  }
 
-	return -1;
+  return -1;
 }
 
 static struct option lopts[] = {
