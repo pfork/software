@@ -178,6 +178,11 @@ const struct {
     {NULL, MODE_INVALID}
 };
 
+/*
+ * new_backend: Add your own backend to this enum here
+ * and also your ascii armored seperator
+ * if your backend doesn't do armoring use (de)armor from this tool
+ */
 typedef enum {Backend_Invalid = 0, Backend_GNUPG = 1, Backend_PITCHFORK = 2, Backend_OPMSG = 4 } Backend;
 const struct {
   const string marker;
@@ -227,12 +232,21 @@ static Backend checkkey(const int argc, const char*argv[]) {
       } else {
         backend|=Backend_OPMSG;
       }
+      /* new_backend: add your check if a key exists for given user here like 
+       * id = has_yourbackend_id(optarg);
+       * if(id.size()) {
+       *   id="";
+       *  } else {
+       *   backend|=Backend_YOURBACKEND;
+       * }
+       */
     }
   }
 
   if(found==0) return Backend_Invalid;
   if(!(backend&Backend_PITCHFORK)) return Backend_PITCHFORK;
   if(!(backend&Backend_OPMSG)) return Backend_OPMSG;
+  /* new_backend: add your backend return here */
   return Backend_GNUPG;
 }
 
@@ -315,6 +329,7 @@ int main(const int argc, const char **argv, const char **envp) {
   case Backend_GNUPG: { gpg(argv); break;}
   case Backend_PITCHFORK: {break;}
   case Backend_OPMSG: { run_opmsg(argc, argv); break;}
+  /* new_backend: add call to fork/exec your backend here */
   default: {break;}
   }
 
