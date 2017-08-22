@@ -74,12 +74,7 @@ int main(int argc, char **argv) {
     }
     pf_ax_send(dev_handle, (uint8_t*)argv[2]);
   } else if(memcmp(argv[1],"recv",5)==0) {
-    if(argc<2) {
-      fprintf(stderr,"recv needs a recipient name as param :/\nabort\n");
-      pf_close(ctx, dev_handle);
-      return 1;
-    }
-    pf_ax_recv(dev_handle, (uint8_t*)argv[2]);
+    pf_ax_recv(dev_handle);
   } else if(memcmp(argv[1],"kex",4)==0) {
     pf_kex_start(dev_handle);
   } else if(memcmp(argv[1],"respond",8)==0) {

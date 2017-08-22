@@ -80,7 +80,7 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer);
 int pf_encrypt(libusb_device_handle *dev_handle, uint8_t *peer);
 int pf_decrypt(libusb_device_handle *dev_handle);
 int pf_ax_send(libusb_device_handle *dev_handle, uint8_t *peer);
-int pf_ax_recv(libusb_device_handle *dev_handle, uint8_t *peer);
+int pf_ax_recv(libusb_device_handle *dev_handle);
 int pf_kex_start(libusb_device_handle *dev_handle);
 int pf_kex_respond(libusb_device_handle *dev_handle, uint8_t *peer);
 int pf_kex_end(libusb_device_handle *dev_handle, uint8_t *peer);

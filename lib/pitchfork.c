@@ -344,6 +344,14 @@ int pf_ax_send(libusb_device_handle *dev_handle, uint8_t *peer) {
   }
   if(0!=pf_perm(dev_handle, "ok")) return -1;
 
+  // get ekid
+  if(0!=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 0) || len!=EKID_SIZE) {
+    fprintf(stderr,"[?] ekid oops?\n");
+    return -1;
+  }
+  fwrite(pkt, 1, EKID_SIZE, stdout);
+  fflush(stdout);
+
   uint8_t hbuf[88];
   // get hnonce+header
   while(1) {
@@ -407,31 +415,23 @@ int pf_ax_send(libusb_device_handle *dev_handle, uint8_t *peer) {
   return 0;
 }
 
-int pf_ax_recv(libusb_device_handle *dev_handle, uint8_t *peer) {
+int pf_ax_recv(libusb_device_handle *dev_handle) {
   uint8_t buf[32768+64];
   buf[0]=PITCHFORK_CMD_AX_RECEIVE;
-  if(fread(buf+1,24+64+24,1,stdin)!=1) {
-    fprintf(stderr,"read hnonce,headers,mnonce meh\n");
+
+  if(fread(buf+1,EKID_SIZE+24+64+24,1,stdin)!=1) {
+    fprintf(stderr,"read ekid,hnonce,headers,mnonce meh\n");
     return -1;
   }
-  int peerlen=strlen((const char*)peer);
-  if(peerlen>32 || peerlen<1) return -1;
-  memcpy(buf+1+24+64+24,peer,peerlen);
 
-  int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, buf, 1+24+64+24+peerlen, &len, 0);
-  if(ret != 0 || len != 1+24+64+24+peerlen) {
+  int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, buf, 1+EKID_SIZE+24+64+24, &len, 0);
+  if(ret != 0 || len != 1+EKID_SIZE+24+64+24) {
     fprintf(stderr,"write meh\n");
     return -1;
   }
   if(0!=pf_perm(dev_handle, "ok")) return -1;
-
   // wait for 2nd go
-  if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, buf, 64, &len, 0)) {
-    if(len!=2 || memcmp(buf,"go", 2)!=0) {
-      fprintf(stderr, "op rejected on PITCHFORK '%s'\n", buf);
-      return -1;
-    }
-  }
+  if(0!=pf_perm(dev_handle, "go")) return -1;
   // start sending stdin
   int first=1;
   int size;
