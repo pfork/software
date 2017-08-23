@@ -40,7 +40,7 @@ echo -e "\ntesting anonymous decryption"
 echo -e "\ntesting axolotl protocol"
 echo '1<3u' | ./pitchfork send Bob >/tmp/ciphertext
 echo "put in Bob pitchfork, press enter"; read
-./pitchfork recv Alice </tmp/ciphertext
+./pitchfork recv </tmp/ciphertext
 
 echo -e "\ntesting sphincs pq sigs"
 echo "testing sphincs signing"
