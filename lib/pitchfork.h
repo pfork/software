@@ -11,6 +11,10 @@
 #define USB_CRYPTO_EP_CTRL_OUT 0x81
 #define USB_CRYPTO_EP_DATA_OUT 0x82
 
+#ifdef __cplusplus 
+extern "C" {
+#endif
+
 typedef enum {
   // /lt /ax /sph /keys /pub /prekeys
   PF_KEY_LONGTERM,
@@ -91,5 +95,10 @@ int pf_verify(libusb_device_handle *dev_handle, uint8_t *peer);
 int pf_encrypt_anon(void);
 int pf_decrypt_anon(libusb_device_handle *dev_handle);
 int pf_get_pub(libusb_device_handle *dev_handle, int type);
+int pf_perm(libusb_device_handle *dev_handle, const char tok[2]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // PITCHFORK_H

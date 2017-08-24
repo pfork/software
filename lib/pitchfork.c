@@ -109,7 +109,7 @@ int pf_close(libusb_context *ctx, libusb_device_handle *dev_handle) {
   return 0;
 }
 
-static int pf_perm(libusb_device_handle *dev_handle, char tok[2]) {
+int pf_perm(libusb_device_handle *dev_handle, const char tok[2]) {
   unsigned char pkt[64];
   int len;
   if(memcmp(tok,"ok",2)==0) {
