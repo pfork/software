@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+[[ $# -ne 2 ]] && {
+   echo "usage $0 <name> <email>"
+   exit 1
+}
+
+homedir=.pgp
+[[ -d $homedir ]] || {
+    mkdir $homedir
+    chmod 700 $homedir
+}
+
+persona="$1"
+email="$2"
+
+pubring="$homedir/pubring.gpg"
+secring="$homedir/secring.gpg"
+
+gpg --homedir $homedir --no-default-keyring --secret-keyring $secring --keyring $pubring --quiet -q --gen-key --batch <(
+  cat <<EOF
+Key-Type: RSA
+Name-Real: $persona
+Name-Email: $email
+%commit
+EOF
+) 2>/dev/null || { echo "something went wrong generating the pgp key" ; exit 1; }
+
+echo 'keyid-format long' >$homedir/gpg.conf
+
+#echo "gpg options: --homedir $homedir --no-default-keyring --secret-keyring $secring --keyring $pubring"
+#echo -n "${persona}s keyid: "
+gpg --homedir $homedir --quiet --batch --yes --no-default-keyring --secret-keyring $secring --keyring $pubring --trust-model always --list-keys --with-colons |
+   sed -n '2p' | cut -d: -f5

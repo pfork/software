@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+[[ $# -ne 2 ]] && {
+   echo "usage $0 <name> <email>"
+   exit 1
+}
+
+persona="$1"
+email="$2"
+
+homedir=.opmsg
+[[ -d $homedir ]] || {
+    mkdir $homedir
+    chmod 700 $homedir
+}
+
+opmsg -c $homedir --newecp --name="$persona $email" 2>/dev/null >/dev/null || {
+   echo "something went wrong generating the opmsg key for $persona"
+   exit 1
+}
+
+#echo "opmsg options: -c $homedir"
+#echo -n "$persona keyid: "
+opmsg -c $homedir --listpgp --name "$persona" 2>/dev/null | head -1 | cut -d: -f5 | tr -d ' '
