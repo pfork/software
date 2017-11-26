@@ -12,6 +12,7 @@ oscar=$(./newopmsg oscar oscar@example.com)
 myself=$(./newopmsg test test@example.com)
 
 pfranz=$(pitchfork plist shared | fgrep uid:u::: | cut -d: -f8)
+longterm=$(pitchfork plist longterm | fgrep uid:u::: | cut -d: -f8)
 
 cat >.opmsg/config <<EOF
 version=2
@@ -45,7 +46,7 @@ echo "asdf" | PFCRYPTMODE=none ../kmleon.sh $gpgopts --sign -u $paula >/tmp/kgs
 # verify
 # gnupg
 echo -e "\n>gnupg verify"
-echo "asdf" | PFCRYPTMODE=none ../kmleon.sh $gpgopts -u $peter --verify /tmp/kgs
+PFCRYPTMODE=none ../kmleon.sh $gpgopts -u $peter --verify /tmp/kgs
 
 # opmsg encrypt
 echo -e "\n>opmsg encrypt"
@@ -60,6 +61,18 @@ set -x
 echo "asdf" | PFCRYPTMODE=shared ../kmleon.sh $gpgopts --encrypt --encrypt-to $pfranz >/tmp/kpe
 echo -e "\n>pitchfork decrypt"
 echo "asdf" | PFCRYPTMODE=shared ../kmleon.sh $gpgopts --decrypt </tmp/kpe
+
+# sign
+set -x
+echo -e "\n>pitchfork sign"
+echo "asdf" | ../kmleon.sh $gpgopts --sign -u $longterm >/tmp/kps
+
+# verify
+echo -e "\n>pitchfork verify"
+../kmleon.sh $gpgopts -u $longterm --verify /tmp/kps
+exit 0
+
+# todo opmsg sign/verify
 
 # mixed
 echo -e "\n>mixed encrypt"
