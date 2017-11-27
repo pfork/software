@@ -21,9 +21,18 @@ void usage(char **argv, int ret) {
   printf("%s verify | verify message using xeddsa/blake (prefix msg with signature)\n", argv[0]);
   printf("%s pqsign | sign message using sphincs/blake\n", argv[0]);
   printf("%s pqverify | verify message using sphincs/blake (prefix msg with signature)\n", argv[0]);
-  printf("%s list type [peer] | lists keys according to type\n\t[axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
+  printf("%s list [type] [peer] | lists keys \n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
+  printf("%s plist [type] [peer] | lists keys in gpg colon-format\n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
   printf("%s getpub [sphincs] | returns either longterm, or sphincs pubkey\n", argv[0]);
   exit(ret);
+}
+
+static void _pf_list(libusb_device_handle *dev_handle, PF_KeyType keytype, uint8_t* peer, char listtype) {
+  if(listtype=='p') {
+    pf_plist(dev_handle, keytype, peer);
+  } else {
+    pf_list(dev_handle, keytype, peer);
+  }
 }
 
 int main(int argc, char **argv) {
@@ -100,7 +109,7 @@ int main(int argc, char **argv) {
   } else if(memcmp(argv[1],"sign",5)==0) {
     pf_sign(dev_handle);
   } else if(memcmp(argv[1],"verify",7)==0) {
-    if(argc<2) {
+    if(argc<3) {
       fprintf(stderr,"verify needs a signers name as param :/\nabort\n");
       pf_close(ctx, dev_handle);
       return 1;
@@ -108,9 +117,10 @@ int main(int argc, char **argv) {
     int ret=pf_verify(dev_handle, (uint8_t*)argv[2]);
     pf_close(ctx, dev_handle);
     return ret;
-  } else if(memcmp(argv[1],"list",5)==0) {
+  } else if(memcmp(argv[1],"list",5)==0 || memcmp(argv[1],"plist",6)==0) {
+    char listtype=(argv[1][0]=='p')?'p':'\0';
     if(argc<3) {
-      fprintf(stderr,"list needs a type as param :/\nabort\n");
+      fprintf(stderr,"%clist needs a type as param :/ (axolotl, sphincs, shared, prekey, pub, longterm)\nabort\n", listtype);
       pf_close(ctx, dev_handle);
       return 1;
     }
@@ -119,18 +129,17 @@ int main(int argc, char **argv) {
       peer=(uint8_t*)argv[3];
     }
     if(memcmp(argv[2],"axolotl",8)==0) {
-      pf_list(dev_handle, PF_KEY_AXOLOTL, peer);
+      _pf_list(dev_handle, PF_KEY_AXOLOTL, peer, listtype);
     } else if(memcmp(argv[2],"sphincs",8)==0) {
-      pf_list(dev_handle, PF_KEY_SPHINCS, peer);
+      _pf_list(dev_handle, PF_KEY_SPHINCS, peer, listtype);
     } else if(memcmp(argv[2],"shared",7)==0) {
-      pf_list(dev_handle, PF_KEY_SHARED, peer);
+      _pf_list(dev_handle, PF_KEY_SHARED, peer, listtype);
     } else if(memcmp(argv[2],"prekey",7)==0) {
-      pf_list(dev_handle, PF_KEY_PREKEY, peer);
+      _pf_list(dev_handle, PF_KEY_PREKEY, peer, listtype);
     } else if(memcmp(argv[2],"pub",4)==0) {
-      pf_list(dev_handle, PF_KEY_PUBCURVE, peer);
-    } else if(memcmp(argv[2],"longterm",10)==0) {
-      // tocheck, fails:
-      pf_list(dev_handle, PF_KEY_LONGTERM, peer);
+      _pf_list(dev_handle, PF_KEY_PUBCURVE, peer, listtype);
+    } else if(memcmp(argv[2],"longterm",9)==0) {
+      _pf_list(dev_handle, PF_KEY_LONGTERM, peer, listtype);
     }
   } else if(memcmp(argv[1],"getpub",7)==0) {
     if(argc>2) {

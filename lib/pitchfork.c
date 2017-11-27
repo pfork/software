@@ -127,12 +127,12 @@ int pf_perm(libusb_device_handle *dev_handle, const char tok[2]) {
   return 0;
 }
 
-int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
+static int _listkeys(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer, uint8_t* output, const size_t output_len) {
   pf_reset(dev_handle);
   unsigned char pkt[64];
   pkt[0]=PITCHFORK_CMD_LIST_KEYS;
   pkt[1]=type;
-  int len=2, sent, plen;
+  int len=2, sent;
   if(peer!=NULL) {
     int tmp=strnlen((const char*)peer,32);
     memcpy(pkt+2,peer,tmp);
@@ -143,11 +143,9 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
     fprintf(stderr,"meh\n");
     return -1;
   }
-  fprintf(stderr, "listing keys\n");
   if(0!=pf_perm(dev_handle, "ok")) return -1;
   // alternatingly poll ctrl/data for any response
-  uint8_t buf[65536];
-  while(0!=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 1)) {
+  while(0!=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, output, output_len, &len, 1)) {
     // try ctrl for errors
     if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 1)) {
       if(memcmp(pkt,"err:", 4)==0) {
@@ -156,6 +154,21 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
         return -1;
       }
     }
+  }
+  return len;
+}
+
+static void hexid(FILE * out, uint8_t *binid) {
+  int i;
+  for(i=0;i<16;i++) fprintf(out, "%02x", binid[i]);
+}
+
+int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
+  int len, plen;
+  fprintf(stderr, "listing keys\n");
+  uint8_t buf[65536];
+  if(0>=(len=_listkeys(dev_handle, type, peer, buf, sizeof(buf)))) {
+    return -1;
   }
 
   uint8_t *ptr = buf;
@@ -189,16 +202,14 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
     }
     case 2: { // correct keyid
       fprintf(stderr, "\t+ ");
-      int i;
-      for(i=0;i<16;i++) fprintf(stderr, "%02x", ptr[1+i]);
+      hexid(stderr, ptr+1);
       fprintf(stderr, "\n");
       ptr+=1+16;
       break;
     }
     case 3: { // corrupt keyid
       fprintf(stderr, "\t- ");
-      int i;
-      for(i=0;i<16;i++) fprintf(stderr, "%02x", ptr[1+i]);
+      hexid(stderr, ptr+1);
       fprintf(stderr, "\n");
       ptr+=1+16;
       break;
@@ -211,6 +222,77 @@ int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
   }
 
   fprintf(stderr, "end listing\n");
+  return 0;
+}
+
+int pf_plist(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer) {
+  // list pgp style
+  //ostr<<"pub:u:4096:1:"<<get_id()<<":1:0:::::eEsScCaA::+:::\n"
+  //    <<"uid:u::::1:0:"<<get_id()<<"::"<get_name()<<":\n";
+  int len, plen=0;
+  fprintf(stderr, "listing keys\n");
+  uint8_t buf[65536];
+  if(0>=(len=_listkeys(dev_handle, type, peer, buf, sizeof(buf)))) {
+    return -1;
+  }
+
+  uint8_t name[33];
+
+  uint8_t *ptr = buf;
+  while(ptr<buf+len) {
+    switch(ptr[0]) {
+    case 0: { // known user
+      plen=ptr[1];
+      if(plen>32) {
+        fprintf(stderr, "wrong len\n");
+        return -1;
+      }
+      memcpy(name, ptr+2, plen);
+      name[plen]=0;
+      ptr+=2+plen;
+      //fprintf(stderr, "setting name to %s\n", name);
+      break;
+    }
+    case 1: {
+      plen=ptr[1];
+      ptr+=2+plen;
+      break;
+    }
+    case 2: { // correct keyid
+      if(plen<1 || plen>32) {
+        fprintf(stderr, "wrong name\n");
+        return -1;
+      }
+      fprintf(stdout, "pub:u:4096:1:");
+      hexid(stdout, ptr+1);
+      fprintf(stdout, ":1:0:::::");
+      switch(type) {
+      case PF_KEY_LONGTERM: { fprintf(stdout, "eEsScCaA"); break; }
+      case PF_KEY_AXOLOTL: { fprintf(stdout, "eE"); break; }
+      case PF_KEY_SPHINCS: { fprintf(stdout, "sScCaA"); break; }
+      case PF_KEY_SHARED: { fprintf(stdout, "eEsScCaA"); break; }
+      case PF_KEY_PUBCURVE: { fprintf(stdout, "eEsScCaA"); break; }
+      case PF_KEY_PREKEY: { break; }
+      }
+      fprintf(stdout, "::+:::\nuid:u::::1:0:");
+
+      hexid(stdout, ptr+1);
+      fprintf(stdout, "::%s:\n", name);
+
+      ptr+=1+16;
+      break;
+    }
+    case 3:  {
+      ptr+=1+16;
+      break;
+    }
+    default: {
+      fprintf(stderr, "zomg wrong type: %02x\n", ptr[0]);
+      return -1;
+    }
+    }
+  }
+
   return 0;
 }
 
