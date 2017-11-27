@@ -31,4 +31,4 @@ echo 'keyid-format long' >$homedir/gpg.conf
 #echo "gpg options: --homedir $homedir --no-default-keyring --secret-keyring $secring --keyring $pubring"
 #echo -n "${persona}s keyid: "
 gpg --homedir $homedir --quiet --batch --yes --no-default-keyring --secret-keyring $secring --keyring $pubring --trust-model always --list-keys --with-colons |
-   sed -n '2p' | cut -d: -f5
+   fgrep "$email" | head -1 | cut -d: -f5
