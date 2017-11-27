@@ -20,7 +20,6 @@ dotest() {
 }
 
 TESTENV="--homedir .pgp --no-default-keyring --secret-keyring .pgp/secring.gpg --keyring .pgp/pubring.gpg"
-OPMSGHOME=".opmsg"
 
 ### enigmail testcases
 ### taken from stracing an enigmail run
@@ -106,6 +105,7 @@ mutt_sign_without_user() { # needs a file to sign
     cmd="$mutt_common_batch --passphrase-fd 0 --armor --detach-sign --textmode $1"
     dotest "$title" "$cmd"
 }
+# clearsign is "strongly deprecated" according to mutt documentation
 mutt_clearsign_with_user() { # needs a signer key id and a file to sign
     title="clearsign (with user)"
     cmd="$mutt_common_batch --passphrase-fd 0 --armor --textmode --clearsign -u $1 $2"
@@ -114,7 +114,7 @@ mutt_clearsign_with_user() { # needs a signer key id and a file to sign
 mutt_clearsign_without_user() { # needs a file to sign
     title="clearsign (without user)"
     cmd="$mutt_common_batch --passphrase-fd 0 --armor --textmode --clearsign $1"
-    dotest "$title" "$cmd"
+   dotest "$title" "$cmd"
 }
 mutt_encrypt() { # needs 3 users to encrypt to and a file to encrypt
     title="encrypt"
@@ -131,14 +131,14 @@ mutt_encrypt_sign_without_user() { # needs 3 users to encrypt to and a file to e
     cmd="$mutt_common_batch --passphrase-fd 0 --quiet --textmode --encrypt --sign --armor --always-trust --encrypt-to $1 -r $2 -r $3 -- $4"
     dotest "$title" "$cmd"
 }
-mutt_import() { # needs a key in a file to import
-    title="import key"
-    cmd="$mutt_common --import -v $1"
-    dotest "$title" "$cmd"
-}
 mutt_export() { # needs a key id
     title="export key"
     cmd="$mutt_common --export --armor $1"
+    dotest "$title" "$cmd"
+}
+mutt_import() { # needs a key in a file to import
+    title="import key"
+    cmd="$mutt_common --import -v $1"
     dotest "$title" "$cmd"
 }
 mutt_verify_key() { # needs a key id
@@ -178,16 +178,21 @@ test_mutt() {
     style="mutt"
     stdout="$sig" mutt_sign_with_user $sk "$msg"
     mutt_verify "$sig" "$msg"
-    stdout="$sig" mutt_sign_without_user "$msg"
-    stdout="$sig" mutt_clearsign_with_user $sk "$msg"
-    stdout="$sig" mutt_clearsign_without_user "$msg"
+    DEFAULTBACKEND=${backend^^} DEFAULTKEY=$sk stdout="$sig" mutt_sign_without_user "$msg"
+    mutt_verify "$sig" "$msg"
+    [[ "$backend" == "gnupg" ]] && { # ops only supported with gnupg backend
+        stdout="$sig" mutt_clearsign_with_user $sk "$msg"
+        mutt_verify "$sig"
+        DEFAULTBACKEND=${backend^^} DEFAULTKEY=$sk stdout="$sig" mutt_clearsign_without_user "$msg"
+        mutt_verify "$sig"
+        mutt_verify_key $pk
+    }
     stdout="$ciphertext" mutt_encrypt $pk $pk1 $pk2 "$msg"
     mutt_decrypt "$ciphertext"
     stdout="$ciphertext" mutt_encrypt_sign_with_user $sk $pk $pk1 $pk2 "$msg"
     stdout="$ciphertext" mutt_encrypt_sign_without_user $pk $pk1 $pk2 "$msg"
-    mutt_export $pk "$exported"
-    mutt_import "$exported"
-    mutt_verify_key $pk
+    stdout="$exported" mutt_export $pk
+    OPMSGHOME=.opmsg2 GPGHOME=.pgp2 mutt_import "$exported"
     mutt_list_pubring $pk
     mutt_list_secring $sk
 }
@@ -209,6 +214,8 @@ pk1=$(./newpgp bob bob@example.com)
 pk2=$(./newpgp charlie charlie@example.com)
 sk=$pk2
 
+mkdir -p .pgp2
+
 test_enigmail
 test_mutt
 
@@ -225,7 +232,7 @@ sk=$pk2
 
 cat >.opmsg/config <<EOF
 version=2
-my_id = $myself
+my_id = $sk
 rsa_len = 4096
 dh_plen = 2048
 calgo = aes128ctr
@@ -235,8 +242,11 @@ curve = brainpoolP320r1
 peer_isolation=1
 EOF
 
-test_enigmail
-test_mutt
+mkdir -p .opmsg2
+cp -f .opmsg/config .opmsg2
+
+OPMSGHOME=.opmsg test_enigmail
+OPMSGHOME=.opmsg test_mutt
 
 #pfranz=$(pitchfork plist shared | fgrep uid:u::: | cut -d: -f8)
 #longterm=$(pitchfork plist longterm | fgrep uid:u::: | cut -d: -f8)
