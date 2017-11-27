@@ -23,6 +23,7 @@ typedef enum {
   PF_KEY_SHARED,
   PF_KEY_PUBCURVE,
   PF_KEY_PREKEY,
+  PF_KEY_MAX,
 } PF_KeyType;
 
 /**
@@ -81,6 +82,7 @@ void pf_reset(libusb_device_handle *dev_handle);
 int pf_stop(libusb_device_handle *dev_handle);
 int pf_rng(libusb_device_handle *dev_handle, int size);
 int pf_list(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer);
+int pf_plist(libusb_device_handle *dev_handle, uint8_t type, uint8_t *peer);
 int pf_encrypt(libusb_device_handle *dev_handle, uint8_t *peer);
 int pf_decrypt(libusb_device_handle *dev_handle);
 int pf_ax_send(libusb_device_handle *dev_handle, uint8_t *peer);
