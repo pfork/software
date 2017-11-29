@@ -21,8 +21,8 @@ void usage(char **argv, int ret) {
   printf("%s verify | verify message using xeddsa/blake (prefix msg with signature)\n", argv[0]);
   printf("%s pqsign | sign message using sphincs/blake\n", argv[0]);
   printf("%s pqverify | verify message using sphincs/blake (prefix msg with signature)\n", argv[0]);
-  printf("%s list [type] [peer] | lists keys \n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
-  printf("%s plist [type] [peer] | lists keys in gpg colon-format\n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
+  printf("%s list type [peer] | lists keys \n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
+  printf("%s plist type [peer] | lists keys in gpg colon-format\n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
   printf("%s getpub [sphincs] | returns either longterm, or sphincs pubkey\n", argv[0]);
   exit(ret);
 }
