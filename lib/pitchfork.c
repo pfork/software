@@ -113,13 +113,13 @@ int pf_perm(libusb_device_handle *dev_handle, const char tok[2]) {
   unsigned char pkt[64];
   int len;
   if(memcmp(tok,"ok",2)==0) {
-    fprintf(stderr, "wait for permission to show PITCHFORK\n");
+    fprintf(stderr, "wait for permission to show PITCHFORK: ");
   } else {
-    fprintf(stderr, "wait for %s\n", tok);
+    fprintf(stderr, "wait for %s: ", tok);
   }
   if(0==libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_OUT, pkt, 64, &len, 0)) {
     if(len!=2 || memcmp(pkt,tok, 2)!=0) {
-      fprintf(stderr, "op rejected on PITCHFORK '%s'\n", pkt);
+      fprintf(stderr, "op rejected: '%s'\n", pkt);
       return -1;
     }
   }
