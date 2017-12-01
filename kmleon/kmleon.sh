@@ -216,7 +216,7 @@ getinfile() {
         case $1 in
             --encrypt|-e|--decrypt|-d|--sign|-s|--verify|-V|--detach-sign) ;;
             --clearsign|--clear-sign|--fingerprint) ;;
-            --recipient|-r|--output|-o|--local-user|-u) shift ;;
+            --recipient|-r|--output|-o|--default-key|--local-user|-u) shift ;;
             --status-fd|-f|--encrypt-to|-r| --passphrase-fd) shift ;;
             --hidden-encrypt-to|--default-key) shift ;;
             --charset|--display-charset) shift ;;
@@ -290,7 +290,7 @@ run_opmsg() {
             --encrypt|-e|--decrypt|-d|--sign|-s|--detach-sign|--fingerprint) ;;
             --clearsign|--clear-sign) echo -e "clearsigning with opmux backend is not supported.\nabort."; exit 1;;
             --verify|-V) ;;
-            --recipient|-r|--local-user|-u) shift ;;
+            --recipient|-r|--default-key|--local-user|-u) shift ;;
             --encrypt-to|-r| --passphrase-fd) shift ;;
             --hidden-encrypt-to|--default-key) shift ;;
             --charset|--display-charset) shift ;;
@@ -412,7 +412,7 @@ run_pitchfork() {
             -f|--status-fd) statusfd="$2"; shift;;
             --encrypt|-e|--decrypt|-d|--sign|-s|--verify|-V|--detach-sign|--fingerprint) ;;
             --clearsign|--clear-sign) ;;
-            --recipient|-r|--local-user|-u) shift ;;
+            --recipient|-r|--default-key|--local-user|-u) shift ;;
             --encrypt-to|-r| --passphrase-fd) shift ;;
             --hidden-encrypt-to|--default-key) shift ;;
             --charset|--display-charset) shift ;;
