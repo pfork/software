@@ -5,6 +5,8 @@
 PITCHFORKHOME=~/.pitchfork
 CACHETIME="2 minutes ago"
 
+self=$0
+
 usage() {
     echo -e "usage: $0 plist <axolotl|sphincs|shared|longterm|prekey|pub>\nabort." >&2
     exit 1
@@ -28,17 +30,31 @@ plist() {
 
     [[ -f "$PITCHFORKHOME/$2.keys" ]] && {
         [[ $(stat -c %Y "$PITCHFORKHOME/$2.keys") -gt $(date -d "$CACHETIME" +%s) ]] && {
-            touch exec cat "$PITCHFORKHOME/$2.keys"
+            touch "$PITCHFORKHOME/$2.keys"
             exec cat "$PITCHFORKHOME/$2.keys"
         }
     }
 
-    pitchfork $1 $2 >"$PITCHFORKHOME/$2.keys" && cat "$PITCHFORKHOME/$2.keys"
+    pitchfork $1 $2 >"$PITCHFORKHOME/$2.keys" && cat "$PITCHFORKHOME/$2.keys" || rm "$PITCHFORKHOME/$2.keys"
 }
 
-# only handle plist command
+multi_encrypt() {
+    # convert back keyid to key name
+    op=$1
+    shift
+
+    name=$($self plist $PFKEYTYPE | fgrep "uid:u::::1:0:$@" | cut -d: -f10)
+    [[ -z "$name" ]] && exit 1
+    armor "PITCHFORK MSG" pitchfork $op "$name"
+}
+
+multi_decrypt() {
+    pitchfork "${@}"
+}
+
 case "$1" in
     plist) plist "$@" ;;
-    encrypt|decrypt|ancrypt|andecrypt|send|recv) ;;
-    *) exec pitchfork "$@";;
+    encrypt|ancrypt|send) multi_encrypt "$@" ;;
+    decrypt|andecrypt|recv) multi_decrypt "$@" ;;
+    *) pitchfork "$@";;
 esac
