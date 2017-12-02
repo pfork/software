@@ -1,22 +1,28 @@
 #!/usr/bin/env bash
 
+muxer=../kmleon.sh
+#muxer=../opmux
+
+total=0
+ok=0
+failed=()
+
 dotest() {
     stderr=$(mktemp)
     [[ -z "$stdout" ]] && stdout=$(mktemp)
     [[ -z "$stdin" ]] && stdin="/dev/null"
 
+    total=$((total+1))
+    #echo "$muxer $2 2>$stderr >$stdout <$stdin"
     echo -n "[$backend/$style] $1 ... "
-    ../kmleon.sh $2 2>$stderr >"$stdout" <"$stdin" && {
-        echo "ok"
+    $muxer $2 2>$stderr >"$stdout" <"$stdin" && {
+        echo -e "\033[0;32mok\033[0m"
         rm -f $stderr
+        ok=$((ok+1))
     } || {
-        echo "fail"
-        echo $2
-        cat $stdout
-        cat $stderr
-        exit 1
+        echo -e "\033[0;31mfail\033[0m"
+        failed+=("$backend/$style: $1 ... \n\t$2\n\tstderr: $stderr\n\tstdout: $stdout")
     }
-    rm -f $stderr
 }
 
 TESTENV="--homedir .pgp --no-default-keyring --secret-keyring .pgp/secring.gpg --keyring .pgp/pubring.gpg"
@@ -59,19 +65,31 @@ enigmail_export() { # needs a pub key id
     cmd="$enigmail_common_agent -a --export $1"
     dotest "$title" "$cmd"
 }
-enigmail_encryptsign() { # needs 2 pub key ids and a secret key id
-    title="encrypt+sign"
+
+enigmail_uniuser_encryptsign() { # needs 1 pub key ids and a secret key id
+    title="1u encrypt+sign"
+    cmd="$enigmail_common_agent -a -t --encrypt --sign --trust-model always -r $1 -u $2"
+    dotest "$title" "$cmd"
+}
+enigmail_uniuser_encrypt() { # needs 1 pub key ids and a secret key id
+    title="1u encrypt (w owner key)"
+    cmd="$enigmail_common_agent -a -t --encrypt --trust-model always -r $1 -u $2"
+    dotest "$title" "$cmd"
+}
+enigmail_uniuser_encrypt_nosigner() { # needs 1 pub key id
+    title="1u encrypt (w owner key, no signer)"
+    cmd="$enigmail_common_agent -a -t --encrypt --trust-model always -r $1"
+    dotest "$title" "$cmd"
+}
+
+enigmail_multiuser_encryptsign() { # needs 2 pub key ids and a secret key id
+    title="*u encrypt+sign"
     cmd="$enigmail_common_agent -a -t --encrypt --sign --trust-model always --encrypt-to $1 -r $2 -u $3"
     dotest "$title" "$cmd"
 }
-enigmail_encrypt1() { # needs 2 pub key ids and a secret key id
-    title="encrypt (w owner key)"
+enigmail_multiuser_encrypt1() { # needs 2 pub key ids and a secret key id
+    title="*u encrypt (w owner key)"
     cmd="$enigmail_common_agent -a -t --encrypt --trust-model always --encrypt-to $1 -r $2 -u $3"
-    dotest "$title" "$cmd"
-}
-enigmail_encrypt2() { # needs 2 pub key ids
-    title="encrypt (w/o owner key)"
-    cmd="$enigmail_common_agent -a -t --encrypt --trust-model always -r $1 -u $2"
     dotest "$title" "$cmd"
 }
 enigmail_decrypt() {
@@ -114,20 +132,32 @@ mutt_clearsign_with_user() { # needs a signer key id and a file to sign
 mutt_clearsign_without_user() { # needs a file to sign
     title="clearsign (without user)"
     cmd="$mutt_common_batch --passphrase-fd 0 --armor --textmode --clearsign $1"
-   dotest "$title" "$cmd"
+    dotest "$title" "$cmd"
 }
-mutt_encrypt() { # needs 3 users to encrypt to and a file to encrypt
-    title="encrypt"
+
+mutt_uniuser_encrypt() { # needs 1 user to encrypt to and a file to encrypt
+    title="1u encrypt"
+    cmd="$mutt_common_batch --quiet --encrypt --textmode --armor --always-trust -r $1 -- $2"
+    dotest "$title" "$cmd"
+}
+mutt_uniuser_encrypt_sign() { # needs a signer key id, 1 user to encrypt to and a file to encrypt and sign
+    title="1u encrypt+sign"
+    cmd="$mutt_common_batch --passphrase-fd 0 --quiet --textmode --encrypt --sign -u $1 --armor --always-trust -r $2 -- $3"
+    dotest "$title" "$cmd"
+}
+
+mutt_multiuser_encrypt() { # needs 3 users to encrypt to and a file to encrypt
+    title="*u encrypt"
     cmd="$mutt_common_batch --quiet --encrypt --textmode --armor --always-trust --encrypt-to $1 -r $2 -r $3 -- $4"
     dotest "$title" "$cmd"
 }
-mutt_encrypt_sign_with_user() { # needs a signer key id, 3 users to encrypt to and a file to encrypt and sign
-    title="encrypt+sign (with user)"
+mutt_multiuser_encrypt_sign_with_user() { # needs a signer key id, 3 users to encrypt to and a file to encrypt and sign
+    title="*u encrypt+sign (with user)"
     cmd="$mutt_common_batch --passphrase-fd 0 --quiet --textmode --encrypt --sign -u $1 --armor --always-trust --encrypt-to $2 -r $3 -r $4 -- $5"
     dotest "$title" "$cmd"
 }
-mutt_encrypt_sign_without_user() { # needs 3 users to encrypt to and a file to encrypt and sign
-    title="encrypt+sign (without user)"
+mutt_multiuser_encrypt_sign_without_user() { # needs 3 users to encrypt to and a file to encrypt and sign
+    title="*u encrypt+sign (without user)"
     cmd="$mutt_common_batch --passphrase-fd 0 --quiet --textmode --encrypt --sign --armor --always-trust --encrypt-to $1 -r $2 -r $3 -- $4"
     dotest "$title" "$cmd"
 }
@@ -164,13 +194,17 @@ test_enigmail() {
     enigmail_listkeys
     enigmail_listsecrets
     enigmail_listsigs $pk
-    stdout="$exported" enigmail_export $pk
+    stdout="$exported" enigmail_export $sk
     # todo enigmail_import
-    stdin="$msg" stdout="$ciphertext" enigmail_encryptsign $pk $pk1 $sk
+    stdin="$msg" stdout="$ciphertext" enigmail_multiuser_encryptsign $pk $pk1 $sk
     stdin="$ciphertext" enigmail_decrypt
-    stdin="$msg" stdout="$ciphertext" enigmail_encrypt1 $pk $pk1 $sk
+    stdin="$msg" stdout="$ciphertext" enigmail_multiuser_encrypt1 $pk $pk1 $sk
     stdin="$ciphertext" enigmail_decrypt
-    stdin="$msg" stdout="$ciphertext" enigmail_encrypt2 $pk $pk1
+    stdin="$msg" stdout="$ciphertext" enigmail_uniuser_encryptsign $pk $sk
+    stdin="$ciphertext" enigmail_decrypt
+    stdin="$msg" stdout="$ciphertext" enigmail_uniuser_encrypt $pk $sk
+    stdin="$ciphertext" enigmail_decrypt
+    stdin="$msg" stdout="$ciphertext" enigmail_uniuser_encrypt_nosigner $pk
     stdin="$ciphertext" enigmail_decrypt
 }
 
@@ -187,11 +221,17 @@ test_mutt() {
         mutt_verify "$sig"
         mutt_verify_key $pk
     }
-    stdout="$ciphertext" mutt_encrypt $pk $pk1 $pk2 "$msg"
+    stdout="$ciphertext" mutt_uniuser_encrypt $pk "$msg"
     mutt_decrypt "$ciphertext"
-    stdout="$ciphertext" mutt_encrypt_sign_with_user $sk $pk $pk1 $pk2 "$msg"
-    stdout="$ciphertext" mutt_encrypt_sign_without_user $pk $pk1 $pk2 "$msg"
-    stdout="$exported" mutt_export $pk
+    stdout="$ciphertext" mutt_uniuser_encrypt_sign $sk $pk "$msg"
+    mutt_decrypt "$ciphertext"
+    stdout="$ciphertext" mutt_multiuser_encrypt $pk $pk1 $pk2 "$msg"
+    mutt_decrypt "$ciphertext"
+    stdout="$ciphertext" mutt_multiuser_encrypt_sign_with_user $sk $pk $pk1 $pk2 "$msg"
+    mutt_decrypt "$ciphertext"
+    stdout="$ciphertext" mutt_multiuser_encrypt_sign_without_user $pk $pk1 $pk2 "$msg"
+    mutt_decrypt "$ciphertext"
+    stdout="$exported" mutt_export $sk
     OPMSGHOME=.opmsg2 GPGHOME=.pgp2 mutt_import "$exported"
     mutt_list_pubring $pk
     mutt_list_secring $sk
@@ -205,32 +245,35 @@ sig=$(mktemp)
 
 #### test with gnupg ####
 
-backend="gnupg"
+test_gpg() {
+    backend="gnupg"
 
-# create some PGP users
-rm -rf .pgp
-pk=$(./newpgp alice alice@example.com)
-pk1=$(./newpgp bob bob@example.com)
-pk2=$(./newpgp charlie charlie@example.com)
-sk=$pk2
+    # create some PGP users
+    rm -rf .pgp
+    pk=$(./newpgp alice alice@example.com)
+    pk1=$(./newpgp bob bob@example.com)
+    pk2=$(./newpgp charlie charlie@example.com)
+    sk=$pk2
 
-mkdir -p .pgp2
+    mkdir -p .pgp2
 
-test_enigmail
-test_mutt
+    test_enigmail
+    test_mutt
+}
 
 #### test with opmsg ####
 
-backend="opmsg"
+test_opmsg() {
+    backend="opmsg"
 
-# create some opmsg users
-rm -rf .opmsg
-pk=$(./newopmsg alice alice@example.com)
-pk1=$(./newopmsg bob bob@example.com)
-pk2=$(./newopmsg charlie charlie@example.com)
-sk=$pk2
+    # create some opmsg users
+    rm -rf .opmsg
+    pk=$(./newopmsg alice alice@example.com)
+    pk1=$(./newopmsg bob bob@example.com)
+    pk2=$(./newopmsg charlie charlie@example.com)
+    sk=$pk2
 
-cat >.opmsg/config <<EOF
+    cat >.opmsg/config <<EOF
 version=2
 my_id = $sk
 rsa_len = 4096
@@ -239,15 +282,62 @@ calgo = aes128ctr
 idformat = split
 new_dh_keys = 3
 curve = brainpoolP320r1
-peer_isolation=1
+peer_isolation=0
 EOF
 
-mkdir -p .opmsg2
-cp -f .opmsg/config .opmsg2
+    mkdir -p .opmsg2
+    cp -f .opmsg/config .opmsg2
 
-OPMSGHOME=.opmsg test_enigmail
-OPMSGHOME=.opmsg test_mutt
+    OPMSGHOME=.opmsg test_enigmail
+    OPMSGHOME=.opmsg test_mutt
+}
 
-#pfranz=$(pitchfork plist shared | fgrep uid:u::: | cut -d: -f8)
-#longterm=$(pitchfork plist longterm | fgrep uid:u::: | cut -d: -f8)
+#### test with pitchfork ####
 
+test_pitchfork() {
+    [[ $(pitchfork stop 2>&1) == "You're wielding a PITCHFORK" ]] || {
+        echo "no PITCHFORK connected skipping tests" >&2
+        return;
+    }
+
+    keys=($(pitchfork plist shared | fgrep 'uid:u::::1:0:' | cut -d: -f8) )
+    [[ ${#keys[@]} -lt 3 ]] && {
+        echo "not enough keys on pitchfork for testing. Please create some test keys following the example below:"
+        echo "pitchfork kex >/tmp/kex"
+        echo "pitchfork respond charlie </tmp/kex >/tmp/response"
+        echo "pitchfork end alice </tmp/response"
+        return
+    }
+
+    pk=${keys[0]}
+    pk1=${keys[1]}
+    pk2=${keys[2]}
+
+    sk=$(pitchfork plist longterm | fgrep uid:u::: | cut -d: -f8)
+
+    backend="PITCHFORK"
+
+    PFKEYTYPE=shared test_enigmail
+    PFKEYTYPE=shared test_mutt
+
+    # todo test with sphincs signatures
+    #sk=$(pitchfork plist sphincs | fgrep uid:u::: | cut -d: -f8)
+    #PFKEYTYPE=shared test_enigmail
+    #PFKEYTYPE=shared test_mutt
+}
+
+#### final statistics ####
+
+test_gpg
+test_opmsg
+test_pitchfork
+
+[[ $total -ne 0 ]] || {
+    echo "no tests run"
+    exit 1
+}
+
+echo "total: $total, succeeded $((ok * 100 / total))%"
+for f in "${failed[@]}"; do
+    echo -e "$f"
+done
