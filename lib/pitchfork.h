@@ -93,7 +93,7 @@ int pf_kex_end(libusb_device_handle *dev_handle, uint8_t *peer);
 int pf_pqsign(libusb_device_handle *dev_handle);
 int pf_pqverify(void);
 int pf_sign(libusb_device_handle *dev_handle);
-int pf_verify(libusb_device_handle *dev_handle, uint8_t *peer);
+int pf_verify(libusb_device_handle *dev_handle);
 int pf_encrypt_anon(void);
 int pf_decrypt_anon(libusb_device_handle *dev_handle);
 int pf_get_pub(libusb_device_handle *dev_handle, int type);

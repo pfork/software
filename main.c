@@ -109,12 +109,7 @@ int main(int argc, char **argv) {
   } else if(memcmp(argv[1],"sign",5)==0) {
     pf_sign(dev_handle);
   } else if(memcmp(argv[1],"verify",7)==0) {
-    if(argc<3) {
-      fprintf(stderr,"verify needs a signers name as param :/\nabort\n");
-      pf_close(ctx, dev_handle);
-      return 1;
-    }
-    int ret=pf_verify(dev_handle, (uint8_t*)argv[2]);
+    int ret=pf_verify(dev_handle);
     pf_close(ctx, dev_handle);
     return ret;
   } else if(memcmp(argv[1],"list",5)==0 || memcmp(argv[1],"plist",6)==0) {

@@ -721,7 +721,7 @@ int pf_sign(libusb_device_handle *dev_handle) {
   // start sending stdin
   uint8_t buf[65536];
   int size;
-  usleep(1000000);
+  if(0!=pf_perm(dev_handle, "go")) return -1;
   while(!feof(stdin)) {
     size=fread(buf, 1, 32768, stdin);
 
@@ -749,26 +749,24 @@ int pf_sign(libusb_device_handle *dev_handle) {
   return ret;
 }
 
-int pf_verify(libusb_device_handle *dev_handle, uint8_t *peer) {
+int pf_verify(libusb_device_handle *dev_handle) {
   unsigned char pkt[128];
   pkt[0]=PITCHFORK_CMD_VERIFY;
   if(1!=fread(pkt+1, 64,1, stdin)) {
     fprintf(stderr,"read sig meh\n");
     return -1;
   }
-  int plen=strnlen((const char*)peer,32);
-  memcpy(pkt+64+1,peer,plen);
 
-  int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, pkt, 1+64+plen, &len, 0);
-  if(ret != 0 || len != 1+64+plen) {
+  int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, pkt, 1+64, &len, 0);
+  if(ret != 0 || len != 1+64) {
     fprintf(stderr,"write meh\n");
     return -1;
   }
   if(0!=pf_perm(dev_handle, "ok")) return -1;
-  // start sending stdin
 
+  if(0!=pf_perm(dev_handle, "go")) return -1;
+  // start sending stdin
   uint8_t buf[65536];
-  usleep(1000000);
   int size;
   while(!feof(stdin)) {
     size=fread(buf, 1, 32768, stdin);
@@ -782,7 +780,7 @@ int pf_verify(libusb_device_handle *dev_handle, uint8_t *peer) {
     }
   }
   // read response
-  if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, pkt, sizeof(pkt), &len, 0))!=0 || len!=1) {
+  if((ret=libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, pkt, sizeof(pkt), &len, 0))!=0 || len<1 || len>33) {
     fprintf(stderr,"[!] bad read %d %d %d\n", len, size+16, ret);
     return -1;
   }
@@ -793,7 +791,13 @@ int pf_verify(libusb_device_handle *dev_handle, uint8_t *peer) {
     break;
   }
   case '1': {
-    fprintf(stderr,"msg valid\n");
+    if(len<2) {
+      fprintf(stderr,"msg invalid\n");
+      ret=1;
+      break;
+    }
+    pkt[len]=0;
+    fprintf(stderr,"valid from %s\n", pkt+1);
     ret= 0;
     break;
   }
