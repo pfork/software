@@ -322,6 +322,8 @@ run_opmsg() {
         [[ $# -gt 0 ]] && INFILE="$1"
     fi
 
+    [[ "x$output" == "x-" ]] && output='/dev/stdout'
+
     [[ -n "$OPMSGHOME" ]] && {
         cmd+=('-c')
         cmd+=($OPMSGHOME)
@@ -403,6 +405,7 @@ run_opmsg() {
 }
 
 run_pitchfork() {
+    set -x
     cmd=()
     output='/dev/stdout'
     statusfd=''
@@ -430,14 +433,27 @@ run_pitchfork() {
         esac
         shift
     done
-    [[ -z "$INFILE" && $# -gt 0 ]] && INFILE="$1"
+
+    if [[ "VERIFY" == "$MODE" ]]; then
+        if [[ $# -eq 2 ]]; then
+            sig="$1"
+            INFILE="$2"
+        else
+            echo -e "non-detached signatures unsupported for pitchfork backend.\nabort" &>2
+            echo -e "params: $@" &>2
+            exit 1
+        fi
+    else
+        [[ $# -gt 0 ]] && INFILE="$1"
+    fi
+
+    [[ "x$output" == "x-" ]] && output='/dev/stdout'
+
     [[ -n "$statusfd" && $statusfd -ne 2 ]] && exec $statusfd>&2
 
     case "$MODE" in
         ENCRYPT)
             [[ ${#PITCHFORKKEYS[@]} -lt 1 ]] && { echo -e "no recipients specified.\nabort." >&2; exit 1; }
-            # todo handle multiple recipients
-            # todo use only keyids instead of names to select keys.
             armor "PITCHFORK MSG" $PITCHFORK $PFENCRYPT "${PITCHFORKKEYS[@]}" <$INFILE >$output
             ;;
         DECRYPT)
@@ -456,8 +472,13 @@ run_pitchfork() {
             # todo sign should output armor(sig||msg)
             armor "PITCHFORK SIGNATURE" $PITCHFORK sign <$INFILE >$output ;;
         VERIFY)
-            # todo verify should try to figure out a keyname instead of stf
-            dearmor 'PITCHFORK SIGNATURE' $PITCHFORK verify stf <$INFILE && {
+            #if [[ $(dearmor 'PITCHFORK SIGNATURE' cat <"$sig" | wc -c "$sig") -eq 64]]; then
+                op=verify
+            #else
+            #    op=pqverify
+            #fi
+            # todo verify should try to figure out a keyname instead of Alice
+            { dearmor 'PITCHFORK SIGNATURE' cat <"$sig"; cat "$INFILE"; } | $PITCHFORK $op Alice && {
                 [[ "$OPMUX_MUA" != "mutt" ]] && {
                     echo -ne "\n[GNUPG:] SIG_ID KEEPAWAYFROMFIRE 1970-01-01 0000000000" >&2
                     echo -ne "\n[GNUPG:] GOODSIG 7350735073507350 opmsg" >&2
