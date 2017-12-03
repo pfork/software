@@ -5,7 +5,7 @@ PITCHFORK. Currently it consists of the following:
 
  - `pitchfork`: the binary to talk to your USB connected PITCHFORK
  - `pitchfork.sh`: a convenience wrapper around `pitchfork`
- - `kmleon`: a replacement for GNUPG handling PITCHFORK, OPMSG and GNUPG backends
+ - `kmleon`: a replacement for GNUPG handling PITCHFORK, [OPMSG](https://github.com/stealth/opmsg) and GNUPG backends
  - `armor/dearmor`: simple wrapper to ascii armor binary data
  - `lib/libpitchfork.so`: a library for accessing a PITCHFORK
 
