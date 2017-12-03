@@ -2,3 +2,7 @@
 pitchfork
 .arch
 lib/libpitchfork.so
+test/.opmsg
+test/.opmsg2
+test/.pgp
+test/.pgp2
