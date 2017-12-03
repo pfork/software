@@ -7,6 +7,7 @@ PITCHFORK. Currently it consists of the following:
  - `pitchfork.sh`: a convenience wrapper around `pitchfork`
  - `kmleon`: a replacement for GNUPG handling PITCHFORK, OPMSG and GNUPG backends
  - `armor/dearmor`: simple wrapper to ascii armor binary data
+ - `lib/libpitchfork.so`: a library for accessing a PITCHFORK
 
 ## pitchfork
 
@@ -296,3 +297,10 @@ would output:
 0000000 0000 0000 0000 0000 0000 0000 0000 0000
 0000010
 ```
+
+## lib/libpitchfork.so
+
+This is a simple library that you can use to access your PITCHFORK, to
+write better cli tools, or even GUI tools. It is needed for
+`pitchfork` to work, which really is just a simple command-line
+wrapper around `libpitchfork.so`.
