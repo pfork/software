@@ -23,9 +23,9 @@ echo "put in Alice pitchfork, press enter"; read
 echo -e "\ntesting xeddsa signing"
 echo "sign me" | ./pitchfork sign >/tmp/signature
 echo -e "\ntesting xeddsa signature verification"
-{ cat /tmp/signature; echo "sign me" ; } | ./pitchfork verify Bob
+{ cat /tmp/signature; echo "sign me" ; } | ./pitchfork verify
 echo -e "\ntesting xeddsa signature verification failing"
-{ cat /tmp/signature; echo "sign it" ; } | ./pitchfork verify Bob || true
+{ cat /tmp/signature; echo "sign it" ; } | ./pitchfork verify || true
 
 echo -e "\ntesting shared key encryption"
 echo 'PITCHFORK!!5!' | ./pitchfork encrypt Bob >/tmp/cipher
