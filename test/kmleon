@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-muxer=../kmleon.sh
+muxer=../kmleon
 #muxer=../opmux
 
 total=0
