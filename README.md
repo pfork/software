@@ -4,9 +4,9 @@ The host tools are a suite of programs helping you work with a
 PITCHFORK. Currently it consists of the following:
 
  - `pitchfork`: the binary to talk to your USB connected PITCHFORK
- - `pitchfork.sh`: a convenience wrapper around `pitchfork`
  - `kmleon`: a replacement for GNUPG handling PITCHFORK, [OPMSG](https://github.com/stealth/opmsg) and GNUPG backends
  - `armor/dearmor`: simple wrapper to ascii armor binary data
+ - `pitchfork.sh`: a convenience wrapper around `pitchfork` mostly for kmleon
  - `lib/libpitchfork.so`: a library for accessing a PITCHFORK
 
 ## pitchfork
