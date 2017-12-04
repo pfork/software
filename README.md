@@ -236,6 +236,16 @@ per message is supported, all recipients have to have keys in the
 selected backend. When decrypting/verifying messages the ASCII armor
 headers are used to distinguish between the backends to be used.
 
+### kmleon Limitations
+
+There are some limitations on the backends:
+
+ - only the gnupg backend supports clearsigning and non-detached
+   signatures.
+ - the pitchfork backend cannot handle multiple recipients.
+ - the pitchfork does not support importing keys - you have to use the
+   `pitchfork` kex procedure for that.
+
 ## pitchfork.sh
 
 `pitchfork.sh` is a convenience wrapper around `pitchfork`. It handles
