@@ -35,7 +35,11 @@ plist() {
         }
     }
 
-    pitchfork $1 $2 >"$PITCHFORKHOME/$2.keys" && cat "$PITCHFORKHOME/$2.keys" || rm "$PITCHFORKHOME/$2.keys"
+    if pitchfork "$1" "$2" >"$PITCHFORKHOME/$2.keys"; then
+       cat "$PITCHFORKHOME/$2.keys" 
+    else
+       rm "$PITCHFORKHOME/$2.keys"
+    fi
 }
 
 multi_encrypt() {
@@ -43,9 +47,9 @@ multi_encrypt() {
     op=$1
     shift
 
-    name=$($self plist $PFKEYTYPE | fgrep "uid:u::::1:0:$@" | cut -d: -f10)
+    name=$($self plist "$PFKEYTYPE" | grep -F "uid:u::::1:0:$*" | cut -d: -f10)
     [[ -z "$name" ]] && exit 1
-    armor "PITCHFORK MSG" pitchfork $op "$name"
+    armor "PITCHFORK MSG" pitchfork "$op" "$name"
 }
 
 multi_decrypt() {
