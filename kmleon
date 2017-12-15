@@ -104,20 +104,20 @@ checkkey() {
     for r in "${RECIPIENTS[@]}"; do
         # pitchfork
         [[ "$PFKEYTYPE" != "none" ]] && $PITCHFORK plist $PFKEYTYPE 2>/dev/null |
-            fgrep -qs "$r" && {
+            grep -F -qs "$r" && {
                 PITCHFORKKEYS+=($r)
                 continue
             }
 
         # opmsg
-        opmsg -c $OPMSGHOME --listpgp --long 2>/dev/null |
-            fgrep -qs "$r" && {
+        opmsg -c "$OPMSGHOME" --listpgp --long 2>/dev/null |
+            grep -F -qs "$r" && {
                 OPMSGKEYS+=($r)
                 continue
             }
 
         # fallback to gnupg
-        gpg --homedir $GPGHOME --fingerprint --with-colons --trust-model always $r >/dev/null 2>&1 && {
+        gpg --homedir "$GPGHOME" --fingerprint --with-colons --trust-model always "$r" >/dev/null 2>&1 && {
             GPGKEYS+=($r)
             continue
         }
@@ -131,33 +131,29 @@ checkkey() {
     # check backend for signing key
     [[ -n "$SIGNER" ]] && {
         # pitchfork
-        $PITCHFORK plist longterm 2>/dev/null |
-            fgrep -qs "$SIGNER" && {
+        if $PITCHFORK plist longterm 2>/dev/null | grep -F -qs "$SIGNER"; then
                 PITCHFORKSIGKEY=$SIGNER
-            } || {
-
-        $PITCHFORK plist sphincs 2>/dev/null |
-            fgrep -qs "$SIGNER" && {
+        else
+            if $PITCHFORK plist sphincs 2>/dev/null | grep -F -qs "$SIGNER"; then
                 PITCHFORKPQSIGKEY=$SIGNER
-            } || {
-
-        # opmsg
-        opmsg -c $OPMSGHOME --listpgp --long 2>/dev/null |
-            fgrep -qs "$SIGNER" && {
-                OPMSGSIGKEY=$SIGNER
-            } || {
-
-        # fallback to gnupg
-        gpg --homedir $GPGHOME --fingerprint --with-colons --trust-model always $SIGNER >/dev/null 2>&1 && {
-            GPGSIGKEY=$SIGNER
-        } } } }
+            else
+                # opmsg
+                if opmsg -c "$OPMSGHOME" --listpgp --long 2>/dev/null | grep -F -qs "$SIGNER"; then
+                    OPMSGSIGKEY=$SIGNER
+                else
+                    # fallback to gnupg
+                    gpg --homedir "$GPGHOME" --fingerprint --with-colons --trust-model always "$SIGNER" >/dev/null 2>&1 &&
+                        GPGSIGKEY=$SIGNER
+                fi
+            fi
+        fi
     }
 
     backendsused=0
     [[ ${#PITCHFORKKEYS[@]} -gt 0 ]] && {
         backendsused=$((backendsused+1))
         BACKEND="PITCHFORK"
-        $VERBOSE && echo "PITCHFORK keys: ${PITCHFORKKEYS[@]}" >&2
+        $VERBOSE && echo "PITCHFORK keys: ${PITCHFORKKEYS[*]}" >&2
     }
     [[ -n "$PITCHFORKSIGKEY" && "$BACKEND" != "PITCHFORK" ]] && {
         BACKEND=PITCHFORK
@@ -170,7 +166,7 @@ checkkey() {
     [[ ${#OPMSGKEYS[@]} -gt 0 ]] && {
         backendsused=$((backendsused+1))
         BACKEND="OPMSG"
-        $VERBOSE && echo "OPMSG keys: ${OPMSGKEYS[@]}" >&2
+        $VERBOSE && echo "OPMSG keys: ${OPMSGKEYS[*]}" >&2
     }
     [[ -n "$OPMSGSIGKEY" && "$BACKEND" != "OPMSG" ]] && {
         BACKEND=OPMSG
@@ -179,7 +175,7 @@ checkkey() {
     [[ ${#GPGKEYS[@]} -gt 0 ]] && {
         backendsused=$((backendsused+1))
         BACKEND="GNUPG"
-        $VERBOSE && echo "GPG keys: ${GPGKEYS[@]}" >&2
+        $VERBOSE && echo "GPG keys: ${GPGKEYS[*]}" >&2
     }
     [[ -n "$GPGSIGKEY" && "$BACKEND" != "GNUPG" ]] && {
         BACKEND=GNUPG
@@ -240,7 +236,7 @@ getinfile() {
 
 peek() {
     getinfile "$@"
-    SOF=$(head -c $PEEKLEN $INFILE)
+    SOF=$(head -c "$PEEKLEN" "$INFILE")
     case "$SOF" in
         *-----BEGIN\ PGP\ MESSAGE-----*) BACKEND=GNUPG;;
         *-----BEGIN\ PGP\ SIGNATURE-----*) BACKEND=GNUPG;;
@@ -258,20 +254,20 @@ list() {
     [[ "$BACKEND" == "all" ]] && {
         case $MODE in
             LIST)
-                gpg --homedir $GPGHOME --quiet --batch --no-verbose --with-colons --trust-model always --list-keys 2>/dev/null
-                opmsg -c $OPMSGHOME --listpgp 2>/dev/null
+                gpg --homedir "$GPGHOME" --quiet --batch --no-verbose --with-colons --trust-model always --list-keys 2>/dev/null
+                opmsg -c "$OPMSGHOME" --listpgp 2>/dev/null
                 $PITCHFORK plist $PFKEYTYPE
                 exit 0
                 ;;
             LISTSECRET)
                 # todo add all secret opmsg keys opmsg -c $OPMSGHOME --list 2>/dev/null
-                gpg --homedir $GPGHOME --quiet --batch --no-verbose --with-colons --trust-model always --list-secret-keys 2>/dev/null
+                gpg --homedir "$GPGHOME" --quiet --batch --no-verbose --with-colons --trust-model always --list-secret-keys 2>/dev/null
                 $PITCHFORK plist longterm
                 $PITCHFORK plist sphincs
                 exit 0
                 ;;
             LISTSIGS) # neither opmsg nor pitchfork support signed keys
-                gpg --homedir $GPGHOME --quiet --batch --no-verbose --with-colons --trust-model always --list-sig 2>/dev/null
+                gpg --homedir "$GPGHOME" --quiet --batch --no-verbose --with-colons --trust-model always --list-sig 2>/dev/null
                 exit 0
                 ;;
             *) echo "what is this (list) mode: $MODE"; exit 1;;
@@ -315,7 +311,7 @@ run_opmsg() {
             INFILE="$1"
         else
             echo -e "non-detached signatures unsupported for opmsg backend.\nabort" &>2
-            echo -e "params: $@" &>2
+            echo -e "params: $*" &>2
             exit 1
         fi
     else
@@ -329,7 +325,7 @@ run_opmsg() {
         cmd+=($OPMSGHOME)
     }
 
-    [[ -n "$statusfd" && $statusfd -ne 2 ]] && exec $statusfd>&2
+    [[ -n "$statusfd" && $statusfd -ne 2 ]] && exec "$statusfd">&2
 
     # sigaction(SIGINT, &sa, nullptr);
     # sigaction(SIGPIPE, &sa, nullptr);
@@ -440,7 +436,7 @@ run_pitchfork() {
             INFILE="$2"
         else
             echo -e "non-detached signatures unsupported for pitchfork backend.\nabort" &>2
-            echo -e "params: $@" &>2
+            echo -e "params: $*" &>2
             exit 1
         fi
     else
@@ -449,15 +445,15 @@ run_pitchfork() {
 
     [[ "x$output" == "x-" ]] && output='/dev/stdout'
 
-    [[ -n "$statusfd" && $statusfd -ne 2 ]] && exec $statusfd>&2
+    [[ -n "$statusfd" && $statusfd -ne 2 ]] && exec "$statusfd">&2
 
     case "$MODE" in
         ENCRYPT)
             [[ ${#PITCHFORKKEYS[@]} -lt 1 ]] && { echo -e "no recipients specified.\nabort." >&2; exit 1; }
-            armor "PITCHFORK MSG" $PITCHFORK $PFENCRYPT "${PITCHFORKKEYS[@]}" <$INFILE >$output
+            armor "PITCHFORK MSG" $PITCHFORK $PFENCRYPT "${PITCHFORKKEYS[@]}" <"$INFILE" >"$output"
             ;;
         DECRYPT)
-            dearmor 'PITCHFORK MSG' $PITCHFORK $PFDECRYPT <$INFILE >$output && {
+            dearmor 'PITCHFORK MSG' $PITCHFORK $PFDECRYPT <"$INFILE" >"$output" && {
                 [[ "$OPMUX_MUA" != "mutt" ]] && {
                     echo -ne "\n[GNUPG:] SIG_ID KEEPAWAYFROMFIRE 1970-01-01 0000000000" >&2
                     echo -ne "\n[GNUPG:] GOODSIG 7350735073507350 opmsg" >&2
@@ -470,7 +466,7 @@ run_pitchfork() {
             ;;
         SIGN)
             # todo sign should output armor(sig||msg)
-            armor "PITCHFORK SIGNATURE" $PITCHFORK sign <$INFILE >$output ;;
+            armor "PITCHFORK SIGNATURE" $PITCHFORK sign <"$INFILE" >"$output" ;;
         VERIFY)
             #if [[ $(dearmor 'PITCHFORK SIGNATURE' cat <"$sig" | wc -c "$sig") -eq 64]]; then
                 op=verify
@@ -493,8 +489,8 @@ run_pitchfork() {
         EXPORT)
             output=${output:-/dev/stdout}
             case "$PFKEYTYPE" in
-                longterm) armor "PITCHFORK 25519 KEY" $PITCHFORK getpub >$output || exit 1 ;;
-                sphincs) armor "PITCHFORK SPHINCS KEY" $PITCHFORK getpub sphincs >>$output || exit 1 ;;
+                longterm) armor "PITCHFORK 25519 KEY" $PITCHFORK getpub >"$output" || exit 1 ;;
+                sphincs) armor "PITCHFORK SPHINCS KEY" $PITCHFORK getpub sphincs >>"$output" || exit 1 ;;
                 *) echo -e "can only export longterm or sphincs keys, not '$PFKEYTYPE'\nabort." >&2; exit 1 ;;
             esac
             exit 0
@@ -516,9 +512,9 @@ case "$DMODE" in
     MODE_PORT)
         if [[ "$MODE" == "EXPORT" ]]; then
             getinfile "$@"
-            DEFAULTBACKEND='' PFKEYTYPE=longterm checkkey -r $INFILE "$@"
+            DEFAULTBACKEND='' PFKEYTYPE=longterm checkkey -r "$INFILE" "$@"
             if [[ -z "$BACKEND" ]]; then
-                DEFAULTBACKEND='' PFKEYTYPE=sphincs checkkey -r $INFILE "$@"
+                DEFAULTBACKEND='' PFKEYTYPE=sphincs checkkey -r "$INFILE" "$@"
                 [[ -z "$BACKEND" ]] && {
                     echo -e "no backends found for recipients specified\nabort." >&2
                     exit 1
