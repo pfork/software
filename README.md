@@ -45,7 +45,7 @@ the size:
 
 You can always press `ctrl-c` to stop it.
 
-### Stoping operations
+### Stopping operations
 
 `pitchfork stop`
 
@@ -150,7 +150,7 @@ then you can provide all of them in this order over stdin to
 
 `{ cat pqpub; cat pqsign; echo "sign me" ; } | pitchfork pqverify`
 
-The output will indicate succeess or failure as will the exit code of
+The output will indicate success or failure as will the exit code of
 `pitchfork`.
 
 ### Anonymous One-way Encryption
@@ -224,14 +224,14 @@ standard output:
 ## kmleon
 
 `kmleon` (pronounced key-meleon) is tool that dispatches crypto
-operations betweend various backends. It is intended to replace your
-gpg binary so that tools traditionaly depending on gnupg (like
+operations between various backends. It is intended to replace your
+gpg binary so that tools traditionally depending on gnupg (like
 mutt/enigmail) can use other (better?) cryptographic backends.
 
 When `kmleon` is used to encrypt messages it checks if there are keys
 available for the recipients for the supported backends (currently
 PITCHFORK, opmsg, gnupg, in this order), it then dispatches the
-operation to the approprate backend. Note currently only one backend
+operation to the appropriate backend. Note currently only one backend
 per message is supported, all recipients have to have keys in the
 selected backend. When decrypting/verifying messages the ASCII armor
 headers are used to distinguish between the backends to be used.
@@ -288,7 +288,7 @@ msg" and "end msg" lines, the header identifier in this case "msg".
 some binary input as parameters as its input. dearmor then seeks in
 standard input until it finds the "begin" line with the header
 identifier and base64 decodes this until the according "end" line,
-outputing the decoded binary on standard output to the progam provided
+outputting the decoded binary on standard output to the progam provided
 on the commandline.
 
 #### dearmor example
