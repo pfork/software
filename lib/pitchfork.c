@@ -7,6 +7,11 @@
 #include "pqcrypto_sign.h"
 #include "axolotl.h"
 #include "sodium/crypto_generichash.h"
+#include <sphinx.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 int open_pitchfork(libusb_context **ctx, libusb_device_handle **dev_handle) {
 	int r; //for return values
@@ -571,6 +576,7 @@ int pf_kex_start(libusb_device_handle *dev_handle) {
   uint8_t buf[((sizeof(Axolotl_PreKey)/64)+1)*64];
   if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0 || len!=sizeof(Axolotl_PreKey)) {
     fprintf(stderr, "[x] failed to receive prekey (len: %d, %s)\n",len, buf);
+    return -1;
   }
   fwrite(buf, 1, len, stdout);
   fflush(stdout);
@@ -977,8 +983,99 @@ int pf_pqverify(void) {
   crypto_generichash_final(&hash_state, msg, 32);
   if(pqcrypto_sign_open(msg, sig, pk)==0) {
     fprintf(stderr,"ok\n");
-  } else {
-    fprintf(stderr,"invalid\n");
+    return 0;
   }
+
+  fprintf(stderr,"invalid\n");
+  return 1;
+}
+
+static int pf_sphinx_id(uint8_t *id, const char* name, const char *site, const char *saltfile) {
+  if(id==NULL || name == NULL || site==NULL || saltfile == NULL) {
+    return -1;
+  }
+  int fd=open(saltfile,O_RDONLY);
+  if(-1==fd) {
+    fprintf(stderr,"could not open salt file\n");
+    return -1;
+  }
+  uint8_t salt[32];
+  if(read(fd,salt,32)!=32) {
+    fprintf(stderr, "could not read salt file\n");
+    close(fd);
+    return -1;
+  }
+  close(fd);
+  //return pysodium.crypto_generichash(b''.join((user.encode(),host.encode())), salt, 32)
+  crypto_generichash_state hash_state;
+  crypto_generichash_init(&hash_state, salt, 32, 16);
+  crypto_generichash_update(&hash_state, (uint8_t*) name, strlen(name));
+  crypto_generichash_update(&hash_state, (uint8_t*) site, strlen(site));
+  crypto_generichash_final(&hash_state, id, 16);
+  return 0;
+}
+
+int pf_sphinx(libusb_device_handle *dev_handle, const uint8_t cmd, const char *name, const char *site, const char *saltfile) {
+  unsigned char pkt[64];
+  int pkt_size=1+16;
+  uint8_t bfac[32];
+  pkt[0]=cmd;
+  if(-1==pf_sphinx_id(pkt+1, name, site, saltfile)) {
+    return -1;
+  }
+
+  if(cmd==PITCHFORK_CMD_SPHINX_CREATE ||
+     cmd==PITCHFORK_CMD_SPHINX_GET ||
+     cmd==PITCHFORK_CMD_SPHINX_CHANGE) {
+    pkt_size+=32;
+    uint8_t pwd[32768]; // 32KB blocks
+    int size=fread(pwd, 1, sizeof pwd, stdin);
+    if(size<=0) {
+      fprintf(stderr, "something went wrong witht he password\n");
+      return -1;
+    }
+
+    sphinx_challenge(pwd, size, bfac, pkt+1+16);
+  }
+  int len, ret = libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_CTRL_IN, pkt, pkt_size, &len, 0);
+  if(ret != 0 || len != pkt_size) {
+    fprintf(stderr,"meh\n");
+    return -1;
+  }
+
+  if(0!=pf_perm(dev_handle, "ok")) return -1;
+
+  uint8_t buf[64];
+  if(libusb_bulk_transfer(dev_handle, USB_CRYPTO_EP_DATA_OUT, buf, sizeof(buf), &len, 0)!=0) {
+    fprintf(stderr, "[x] failed to create sphinx password (len: %d, %s)\n",len, buf);
+    return -1;
+  }
+
+  if(cmd==PITCHFORK_CMD_SPHINX_CREATE ||
+     cmd==PITCHFORK_CMD_SPHINX_GET ||
+     cmd==PITCHFORK_CMD_SPHINX_CHANGE) {
+    if(len!=32) {
+      fprintf(stderr, "[x] sphinx protocol failed\n");
+      return -1;
+    }
+    uint8_t rwd[32];
+    if(-1==sphinx_finish(bfac, buf, rwd)) {
+      fprintf(stderr, "[x] sphinx protocol failed\n");
+      return -1;
+    }
+    fwrite(rwd, 1, 32, stdout);
+    fflush(stdout);
+  } else {
+    if(0==memcmp(buf,"fail",5)) {
+      printf("fail\n");
+    } else if(0==memcmp(buf,"ok",3)) {
+      printf("ok\n");
+    } else {
+      fprintf(stderr, "[x] sphinx protocol failed\n");
+      return -1;
+    }
+  }
+
+  pf_reset(dev_handle);
   return 0;
 }

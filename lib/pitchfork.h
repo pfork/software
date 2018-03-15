@@ -11,7 +11,7 @@
 #define USB_CRYPTO_EP_CTRL_OUT 0x81
 #define USB_CRYPTO_EP_DATA_OUT 0x82
 
-#ifdef __cplusplus 
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -43,6 +43,13 @@ typedef enum {
 
   // dumping pubkeys
   PITCHFORK_CMD_DUMP_PUB,
+
+  // SPHINX ops
+  PITCHFORK_CMD_SPHINX_CREATE,
+  PITCHFORK_CMD_SPHINX_GET,
+  PITCHFORK_CMD_SPHINX_CHANGE,
+  PITCHFORK_CMD_SPHINX_COMMIT,
+  PITCHFORK_CMD_SPHINX_DELETE,
 
   // ops needing double input buffers, starting at 0x10
   // so we can test for them like (modus & PITCHFORK_CMD_BUFFERED)
@@ -98,6 +105,7 @@ int pf_encrypt_anon(void);
 int pf_decrypt_anon(libusb_device_handle *dev_handle);
 int pf_get_pub(libusb_device_handle *dev_handle, int type);
 int pf_perm(libusb_device_handle *dev_handle, const char tok[2]);
+int pf_sphinx(libusb_device_handle *dev_handle, const uint8_t cmd, const char *name, const char *site, const char *saltfile);
 
 #ifdef __cplusplus
 }

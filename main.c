@@ -1,8 +1,10 @@
 #include <libusb-1.0/libusb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
 #include "pitchfork.h"
+
 
 void usage(char **argv, int ret) {
   printf("%s: PITCHFORK front-end\n", argv[0]);
@@ -24,6 +26,11 @@ void usage(char **argv, int ret) {
   printf("%s list type [peer] | lists keys \n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
   printf("%s plist type [peer] | lists keys in gpg colon-format\n\ttype is one of: [axolotl, sphincs, shared, longterm, prekey, pub], optionally filters only for peer\n", argv[0]);
   printf("%s getpub [sphincs] | returns either longterm, or sphincs pubkey\n", argv[0]);
+  printf("%s sphinx create <name> <site> <salt>| creates a sphinx password for 'name' on 'site'\n", argv[0]);
+  printf("%s sphinx get <name> <site> <salt>| get a sphinx password for 'name' on 'site'\n", argv[0]);
+  printf("%s sphinx change <name> <site> <salt>| get a new sphinx password for 'name' on 'site'\n", argv[0]);
+  printf("%s sphinx commit <name> <site> <salt>| commit a new sphinx password for 'name' on 'site'\n", argv[0]);
+  printf("%s sphinx delete <name> <site> <salt>| delete a phinx password for 'name' on 'site'\n", argv[0]);
   exit(ret);
 }
 
@@ -146,6 +153,32 @@ int main(int argc, char **argv) {
         return 1;
       }
     } else pf_get_pub(dev_handle, 0);
+
+  } else if(memcmp(argv[1],"sphinx",7)==0) {
+    if(argc!=6) {
+      fprintf(stderr,"sphinx needs exactly 4 parameters: <create|get|change|commit|delete> <name> <site> <saltfile>\n");
+      pf_close(ctx, dev_handle);
+      return 1;
+    }
+    uint8_t cmd=0xff;
+    if(memcmp(argv[2],"create",7)==0) {
+      cmd=PITCHFORK_CMD_SPHINX_CREATE;
+    } else if(memcmp(argv[2],"get",4)==0) {
+      cmd=PITCHFORK_CMD_SPHINX_GET;
+    } else if(memcmp(argv[2],"change",7)==0) {
+      cmd=PITCHFORK_CMD_SPHINX_CHANGE;
+    } else if(memcmp(argv[2],"commit",7)==0) {
+      cmd=PITCHFORK_CMD_SPHINX_COMMIT;
+    } else if(memcmp(argv[2],"delete",7)==0) {
+      cmd=PITCHFORK_CMD_SPHINX_DELETE;
+    }
+    if(cmd!=0xff) {
+      pf_sphinx(dev_handle, cmd, argv[3], argv[4], argv[5]);
+    } else {
+      fprintf(stderr,"sphinx needs a sub-command <create|get|change|commit|delete>\n");
+      pf_close(ctx, dev_handle);
+      return 1;
+    }
   } else {
     usage(argv,1);
   }

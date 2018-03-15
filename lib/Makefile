@@ -1,7 +1,8 @@
 BP=../../firmware
-LDFLAGS=-lusb-1.0 -lsodium
+LDFLAGS=-lusb-1.0 -lsodium -lsphinx
 INCS=-Ilib -I$(BP)/lib/sphincs -I$(BP)/crypto -I$(BP)/lib/newhope -I. -I/usr/include/sodium/
 CFLAGS=-Wall -Wextra -pedantic -Wstrict-overflow -fno-strict-aliasing -Wshadow -fpic
+PREFIX?=/usr/local
 
 sphincsobjs = crypto_stream_chacha20.o wots.o prg.o hash.o horst.o sign.o permute.o
 
@@ -40,7 +41,15 @@ forkutils.o: forkutils.c
 lib/pitchfork.o: lib/pitchfork.c
 	gcc $(INCS) $(CFLAGS) -o $@ -c $<
 
+install: $(PREFIX)/lib/libpitchfork.so # $(PREFIX)/include/pitchfork.h
+
+$(PREFIX)/lib/libpitchfork.so: libpitchfork.so
+	   cp $< $@
+
+$(PREFIX)/include/pitchfork.h: pitchfork.h
+	   cp $< $@
+
 clean:
 	@rm -f $(sphincsobjs) pitchfork.o libpitchfork.so
 
-.PHONY: clean
+.PHONY: clean install
